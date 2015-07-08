@@ -1,0 +1,20 @@
+
+
+//===---- IDEAS -----------------------------------------------------------===//
+
+1. I think that creating our own structure to represent tasks will be more 
+efficient than using the IOMP structure.
+
+2. The checkDependences and releaseDependences functions are completely surrounded
+by locks. This is not good. This is required because while we are checking for existence
+of dependences there can't be other thread invalidating the previous checks we have
+already done in the loop. I think we might add a lock per entry on the hash table and
+this will be more efficient.
+
+3. We need a better threaded queue implementation. Current uses are:
+	- The front end, when new tasks are pushed in the runtime. A MPSC queue is required.
+	- In the future we will need a SPMC queue to communicate the runtime and the worker threads.
+	
+4. The [kmp_depend_info* list] copy in the [__mtsp_addNewTask] is only necessary because we 
+are decoupling the "task finding" and task scheduling operations (i.e., we use a queue to
+store pending tasks). Does this decoupling pay the benefit of copying this list for every task?
