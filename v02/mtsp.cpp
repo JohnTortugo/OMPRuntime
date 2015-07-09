@@ -24,6 +24,11 @@ kmp_uint32			volatile __mtsp_newTQWriteIndex;
 unsigned char volatile __mtsp_lock_initialized 	 = 0;
 unsigned char volatile __mtsp_lock_newTasksQueue = 0;
 
+/// Variables/constants related to the the taskMetadata buffer
+bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
+char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
+
+
 
 //===-------- VTune/libittnotify related stuff ----------===//
 __itt_domain*			volatile __itt_mtsp_domain	= nullptr;
@@ -75,7 +80,7 @@ void __mtsp_initialize() {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//
 	__itt_thread_set_name("MTSPRuntime");
 
-    __itt_mtsp_domain 	= __itt_domain_create("MTSP.SchedulerDomain");
+    __itt_mtsp_domain = __itt_domain_create("MTSP.SchedulerDomain");
 	__itt_ReadyQueue_Dequeue = __itt_string_handle_create("ReadyQueue_Dequeue");
 	__itt_ReadyQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
 	__itt_New_Tasks_Queue_Dequeue = __itt_string_handle_create("New_Tasks_Queue_Dequeue");
@@ -96,12 +101,18 @@ void __mtsp_initialize() {
 	__itt_Task_With_Deps = __itt_string_handle_create("Task_With_Deps");
 
 
+	//===-------- This slot is free for use by any thread ----------===//
+	for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
+		__mtsp_taskMetadataStatus[i] = false;
+	}
+
+
 	//===-------- Initialize runtime data structures ----------===//
-	__mtsp_newTasksQueue[0] 	= (kmp_uint64) 0;
+	__mtsp_newTasksQueue[0] = (kmp_uint64) 0;
 	__mtsp_newTQDepsPointers[0]	= nullptr;
-	__mtsp_newTQAvailables[0] 			= false;
-	__mtsp_newTQReadIndex	 	= 0;
-	__mtsp_newTQWriteIndex	 	= 0;
+	__mtsp_newTQAvailables[0] = false;
+	__mtsp_newTQReadIndex = 0;
+	__mtsp_newTQWriteIndex = 0;
 
 	/// This the original main thread to core-0
 	stick_this_thread_to_core(__MTSP_MAIN_THREAD_CORE__);

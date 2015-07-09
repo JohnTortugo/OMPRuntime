@@ -157,6 +157,12 @@ void removeFromTaskGraph(kmp_uint16 idOfFinishedTask) {
 	/// Decrement the number of tasks in the system currently
 	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
 
+	/// Release the taskmetadata slot used
+	if (tasks[idOfFinishedTask]->part_id >= 0) {
+		__mtsp_taskMetadataStatus[tasks[idOfFinishedTask]->part_id] = false;
+		//printf("Releasing position %d\n", tasks[idOfFinishedTask]->part_id);
+	}
+
 	/// This slot is empty
 	tasks[idOfFinishedTask] = nullptr;
 	freeSlots[0]++;

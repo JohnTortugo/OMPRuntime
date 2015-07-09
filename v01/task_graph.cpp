@@ -106,7 +106,7 @@ void addToTaskGraph(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depLis
 
 	/// Obtain id for the new task
 	kmp_uint16 newTaskId = freeSlots[ freeSlots[0]-- ];
-	printf("TaskGraphSize = %d\n", MAX_TASKS - freeSlots[0] + 1);
+	//printf("TaskGraphSize = %d\n", MAX_TASKS - freeSlots[0] + 1);
 
 	/// depPattern stores a bit pattern representing the dependences of the new task
 	kmp_uint64 depPattern = checkAndUpdateDependencies(newTaskId, ndeps, depList);

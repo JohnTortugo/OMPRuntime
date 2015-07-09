@@ -46,17 +46,40 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     printf("Saindo...\n");
 }
 
+kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int32* memorySlotId) {
+	if (numBytes > TASK_METADATA_MAX_SIZE) {
+		printf("Request for metadata slot to big: %u\n", numBytes);
+		return (kmp_taskdata*) malloc(numBytes);
+	}
+	else {
+		for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
+			if (__mtsp_taskMetadataStatus[i] == false) {
+				__mtsp_taskMetadataStatus[i] = true;
+				*memorySlotId = i;
+				return  (kmp_taskdata*) __mtsp_taskMetadataBuffer[i];
+			}
+		}
+	}
+
+	//fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots.\n", __FUNCTION__, __LINE__);
+
+	/// Lets take the "safe" side here..
+	return (kmp_taskdata*) malloc(numBytes);
+}
+
 kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task_t, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Alloc);
 
-	size_t shareds_offset 	= sizeof(kmp_taskdata) + sizeof_kmp_task_t;
+	kmp_uint32 shareds_offset  = sizeof(kmp_taskdata) + sizeof_kmp_task_t;
+	kmp_int32 memorySlotId = -1;
 
-    kmp_taskdata* taskdata 	= (kmp_taskdata*) malloc(shareds_offset + sizeof_shareds);
+    kmp_taskdata* taskdata = allocateTaskData(shareds_offset + sizeof_shareds, &memorySlotId);
 
-    kmp_task* task			= KMP_TASKDATA_TO_TASK(taskdata);
+    kmp_task* task = KMP_TASKDATA_TO_TASK(taskdata);
 
-    task->shareds			= (sizeof_shareds > 0) ? &((char *) taskdata)[shareds_offset] : NULL;
-    task->routine           = task_entry;
+    task->shareds = (sizeof_shareds > 0) ? &((char *) taskdata)[shareds_offset] : NULL;
+    task->routine = task_entry;
+    task->part_id = memorySlotId;
 
     __itt_task_end(__itt_mtsp_domain);
     return task;

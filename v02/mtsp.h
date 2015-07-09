@@ -40,7 +40,7 @@
 
 	//===----------------------------------------------------------------------===//
 	//
-	// Global variables and their locks
+	// Global variables and their locks, etc.
 	//
 	//===----------------------------------------------------------------------===//
 
@@ -61,6 +61,16 @@
 	extern kmp_depend_info* volatile __mtsp_newTQDepsPointers[NEW_TASKS_QUEUE_SIZE];
 	extern kmp_uint32		volatile __mtsp_newTQReadIndex;
 	extern kmp_uint32		volatile __mtsp_newTQWriteIndex;
+
+	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
+	/// larger than this will use a memory region returned by a call to std malloc.
+	#define TASK_METADATA_MAX_SIZE 1024
+	#define MAX_TASKMETADATA_SLOTS 4096
+
+	/// Memory region from where new tasks metadata will be allocated.
+	extern bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
+	extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
+
 
 
 
