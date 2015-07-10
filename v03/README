@@ -1,0 +1,12 @@
+The differences of this version for version 0.2 are:
+
+	
+	Errors:
+	
+		- A deadlock condition was possible in the code for barrier in the worker threads.
+		The check of the threadWait and inFlightTask number was inverted...
+
+	Load balancing:
+	
+		- Each worker thread has its own local run queue and the runtime scheduler
+		distribute work in a ciclic way.

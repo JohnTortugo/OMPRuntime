@@ -61,23 +61,24 @@ void* workerThreadCode(void* params) {
 
 				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
 
-				/// has a barrier been activated?
-				kmp_uint32 inFlight = ATOMIC_ADD(&__mtsp_inFlightTasks, 0);
+				if (__mtsp_threadWait == true) {
+//					kmp_uint32 inFlight = ATOMIC_ADD(&__mtsp_inFlightTasks, 0);
 
-				if (inFlight == 0 && __mtsp_threadWait == true) {
-					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Barrier);
+					if (__mtsp_inFlightTasks == 0) {
+						__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Barrier);
 
-					ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
+						ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
 
-					/// wait until the barrier is released
-					while (__mtsp_threadWait);
+						/// wait until the barrier is released
+						while (__mtsp_threadWait);
 
-					printf("%llu tasks were executed by thread %d.\n", tasksExecuted, *tasksIdent);
+						printf("%llu tasks were executed by thread %d.\n", tasksExecuted, *tasksIdent);
 
-					/// Says that the current thread have visualized the previous update to threadWait
-					ATOMIC_SUB(&__mtsp_threadWaitCounter, 1);
+						/// Says that the current thread have visualized the previous update to threadWait
+						ATOMIC_SUB(&__mtsp_threadWaitCounter, 1);
 
-					__itt_task_end(__itt_mtsp_domain);
+						__itt_task_end(__itt_mtsp_domain);
+					}
 				}
 
 				__itt_task_end(__itt_mtsp_domain);
