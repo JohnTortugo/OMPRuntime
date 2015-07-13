@@ -4,6 +4,7 @@
 	#include "kmp.h"
 	#include "ittnotify.h"
 	#include "task_graph.h"
+	#include "MCRingBuffer.h"
 
 	#include <pthread.h>
 
@@ -44,6 +45,8 @@
 	/// Work distribution based on the load on the queue
 	///#define MTSP_WORK_DISTRIBUTION_QL	1
 
+	/// Enable this define to use one retirement queue per worker thread
+	#define MTSP_MULTIPLE_RETIRE_QUEUES		1
 
 
 
@@ -61,17 +64,11 @@
 	/// This is the thread referencing the MTSP runtime thread
 	extern pthread_t __mtsp_RuntimeThread;
 
-	/// The five variables below represent:
-	///		1. This represents the front end new tasks queue
-	///		2. The number of dependences of each task
-	///		3. A pointer to the list of dependences of each task
-	///		4. An integer pointing to the next position to be written
-	///		5. An integer pointing to the next position to be read
-	extern kmp_task* 		volatile __mtsp_newTasksQueue[NEW_TASKS_QUEUE_SIZE];
-	extern kmp_uint32 		volatile __mtsp_newTQDeps[NEW_TASKS_QUEUE_SIZE];
-	extern kmp_depend_info* volatile __mtsp_newTQDepsPointers[NEW_TASKS_QUEUE_SIZE];
-	extern kmp_uint32		volatile __mtsp_newTQReadIndex;
-	extern kmp_uint32		volatile __mtsp_newTQWriteIndex;
+	extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueue;
+	extern SPSCQueue<kmp_uint32, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueueNDeps;
+	extern SPSCQueue<kmp_depend_info*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueueDeps;
+
+
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
 	/// larger than this will use a memory region returned by a call to std malloc.
@@ -96,7 +93,7 @@
 
 	/// Labels for itt-events representing enqueue and dequeue from the new tasks queue
 	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Dequeue;
-	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Enqueue;
+	extern __itt_string_handle* volatile __itt_Submission_Queue_Enqueue;
 	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Copy;
 	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Full;
 
@@ -178,7 +175,6 @@
 
 	#define __MTSP_MAIN_THREAD_CORE__			0
 	#define __MTSP_RUNTIME_THREAD_CORE__		1
-	#define __MTSP_WORKER_THREAD_BASE_CORE__	2
 
 
 

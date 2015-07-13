@@ -10,10 +10,11 @@
 	//===----------------------------------------------------------------------===//
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 				64
+	#define MAX_TASKS 					       64
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-	#define NEW_TASKS_QUEUE_SIZE	16384
+	#define SUBMISSION_QUEUE_SIZE			16384
+	#define SUBMISSION_QUEUE_BATCH_SIZE			4
 
 	/// Tells whether we have already initialized the task graph data structures
 	extern bool taskGraphInitialized;
@@ -34,29 +35,12 @@
 	/// This has the same structure as freeSlots but store tasks that are ready for execution
 	//extern kmp_uint16 volatile readySlots[MAX_TASKS + 1];
 
-	/// This has the same structure as freeSlots but store tasks that have finished execution
-	extern kmp_uint16 volatile finishedSlots[MAX_TASKS + 1];
-
 	/// Every time a thread finish executing a task it will add its ID in this queue. This
 	/// is used for load balancing.
 	extern kmp_uint16 volatile finishedIDS[MAX_TASKS + 1];
 
 	/// The ID of the next worker-thread that will receive work (for a ciclic distribution)
 	extern kmp_uint8 idNextWorkerThread;
-
-
-
-	//===-------- Locks used to control access to the variables above ----------===//
-	extern unsigned char volatile lock_readySlots;
-	extern unsigned char volatile lock_finishedSlots;
-
-
-
-
-
-
-
-
 
 
 
@@ -75,13 +59,9 @@
 
 
 	/// Used to add a new task to the task graph
-	///
-	/// \param	newTask		A pointer to the new task allocated by kmpc_task_alloc
-	/// \param	ndeps		The number of dependence items this task has
-	/// \param	depList		The list of dependence items this task has
-	void addToTaskGraph(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList);
+	void addToTaskGraph(kmp_task*);
 
-	void removeFromTaskGraph(kmp_uint16 idOfFinishedTask);
+	void removeFromTaskGraph(kmp_task*);
 
 	void dumpDependenceMatrix();
 #endif

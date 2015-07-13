@@ -35,7 +35,7 @@ __itt_domain*			volatile __itt_mtsp_domain	= nullptr;
 __itt_string_handle* 	volatile __itt_ReadyQueue_Dequeue	= nullptr;
 __itt_string_handle* 	volatile __itt_ReadyQueue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Dequeue	= nullptr;
-__itt_string_handle* 	volatile __itt_New_Tasks_Queue_Enqueue	= nullptr;
+__itt_string_handle* 	volatile __itt_Submission_Queue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Copy		= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Full		= nullptr;
 __itt_string_handle* 	volatile __itt_Finished_Tasks_Queue_Dequeue	= nullptr;
@@ -84,7 +84,7 @@ void __mtsp_initialize() {
 	__itt_ReadyQueue_Dequeue = __itt_string_handle_create("ReadyQueue_Dequeue");
 	__itt_ReadyQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
 	__itt_New_Tasks_Queue_Dequeue = __itt_string_handle_create("New_Tasks_Queue_Dequeue");
-	__itt_New_Tasks_Queue_Enqueue = __itt_string_handle_create("New_Tasks_Queue_Enqueue");
+	__itt_Submission_Queue_Enqueue = __itt_string_handle_create("New_Tasks_Queue_Enqueue");
 	__itt_New_Tasks_Queue_Full = __itt_string_handle_create("New_Tasks_Queue_Full");
 	__itt_New_Tasks_Queue_Copy = __itt_string_handle_create("New_Tasks_Queue_Copy");
 	__itt_Finished_Tasks_Queue_Dequeue = __itt_string_handle_create("Finished_Tasks_Queue_Dequeue");
@@ -123,7 +123,7 @@ void __mtsp_initialize() {
 }
 
 void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_New_Tasks_Queue_Enqueue);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Enqueue);
 	ACQUIRE(&__mtsp_lock_newTasksQueue);
 
 	/// If the position we would write is still in use we need to release the lock

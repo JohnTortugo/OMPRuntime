@@ -5,6 +5,11 @@
 	#include "ittnotify.h"
 	#include <pthread.h>
 
+	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
+	#define RUN_QUEUES_SIZE				64
+	#define RUN_QUEUES_BATCH_SIZE		 4
+
+
 	/// The bool var is used to set a flag indicating that worker threads must "barrier" synchronize
 	/// The counter is used to count how many threads have already reached to the barrier
 	extern kmp_uint32	volatile	__mtsp_threadWaitCounter;
@@ -23,7 +28,11 @@
 	extern kmp_uint32* 	volatile	workerThreadsIds;
 
 	/// This is a matrix. Each line represents a submission queue of one worker thread
-	extern kmp_uint32** volatile 	workerThreadsRunQueue;
+	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RunQueues;
+
+	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RetirementQueues;
+
+	extern MPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE> RetirementQueue;
 
 	void __mtsp_initScheduler();
 

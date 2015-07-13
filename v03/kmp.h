@@ -46,6 +46,17 @@
 
 
 
+	/// This is used to describe the properties of a task parameter
+	typedef struct {
+		kmp_intptr			base_addr;			/*< Base address of the parameter */
+		size_t              len;				/*< Declared size of the memory region accessed */
+		struct {								/*< The fields below aren't exclusive! */
+			bool          	in:1;				/*< Parameter is used for reading. */
+			bool          	out:1;				/*< Parameter is used for writing. */
+		} flags;
+	} kmp_depend_info;
+
+
 
 	/// Used for describing an annotated source code block.
 	typedef struct {
@@ -58,14 +69,22 @@
 	                            	the function and a pair of line numbers that delimit the construct. */
 	} ident;
 
+	/// This structure is used by MTSP to store metadata information related to a task
+	typedef struct _mtsp_task_metadata {
+		kmp_int32 metadata_slot_id;
+		kmp_int32 taskgraph_slot_id;
+		kmp_int32 ndeps;
+		kmp_depend_info* dep_list;
+	} mtsp_task_metadata;
+
 
 	/// Used for representing a task invocation. The shareds field points to a list of pointers to shared variables.
 	/// The "routine" field point to a ptask routine.
 	typedef struct _kmp_task {
 	    void *              	shareds;            /**< pointer to block of pointers to shared vars   */
 	    kmp_routine_entry 		routine;            /**< pointer to routine to call for executing task */
-	    kmp_routine_entry 		destructors;        /**< Currently not used in MTSP.  */
-	    kmp_int32           	part_id;            /**< Currently not used in MTSP. */
+	    mtsp_task_metadata*		metadata;        	/**< [MTSP] Actually this point to a metadata structure used by MTSP.  */
+	    kmp_int32           	_was_part_id;       /**< Currently not used in MTSP. */
 	    /*  private vars  */
 	} kmp_task;
 
@@ -93,17 +112,6 @@
 	    unsigned native      : 1;               /* 1==gcc-compiled task, 0==intel */
 	    unsigned reserved31  : 7;               /* reserved for library use */
 	} kmp_tasking_flags;
-
-
-	/// This is used to describe the properties of a task parameter
-	typedef struct {
-		kmp_intptr			base_addr;			/*< Base address of the parameter */
-		size_t              len;				/*< Declared size of the memory region accessed */
-		struct {								/*< The fields below aren't exclusive! */
-			bool          	in:1;				/*< Parameter is used for reading. */
-			bool          	out:1;				/*< Parameter is used for writing. */
-		} flags;
-	} kmp_depend_info;
 
 
 	/// Used to store metadata related to task execution/context

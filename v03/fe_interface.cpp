@@ -75,15 +75,17 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Alloc);
 
 	kmp_uint32 shareds_offset  = sizeof(kmp_taskdata) + sizeof_kmp_task_t;
+	kmp_int32 sizeOfMetadata = sizeof(mtsp_task_metadata);
 	kmp_int32 memorySlotId = -1;
 
-    kmp_taskdata* taskdata = allocateTaskData(shareds_offset + sizeof_shareds, &memorySlotId);
+    kmp_taskdata* taskdata = allocateTaskData(shareds_offset + sizeof_shareds + sizeOfMetadata, &memorySlotId);
 
     kmp_task* task = KMP_TASKDATA_TO_TASK(taskdata);
 
-    task->shareds = (sizeof_shareds > 0) ? &((char *) taskdata)[shareds_offset] : NULL;
-    task->routine = task_entry;
-    task->part_id = memorySlotId;
+    task->shareds  = (sizeof_shareds > 0) ? &((char *) taskdata)[shareds_offset] : NULL;
+    task->routine  = task_entry;
+    task->metadata = (_mtsp_task_metadata*) &((char *) taskdata)[shareds_offset + sizeof_shareds];
+    task->metadata->metadata_slot_id = memorySlotId;
 
     __itt_task_end(__itt_mtsp_domain);
     return task;
@@ -106,6 +108,9 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 
 	/// TODO: have to check if we aren't already at a barrier. This may happen
 	/// if we let several threads to call taskwait();
+
+	/// Flush the current state of the submission queues..
+	submissionQueue.fsh();
 
 	/// Reset the number of threads that have currently reached the barrier
 	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);

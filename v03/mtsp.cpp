@@ -9,16 +9,21 @@
 #include "mtsp.h"
 #include "scheduler.h"
 #include "task_graph.h"
+#include "MCRingBuffer.h"
 
 bool 				volatile __mtsp_initialized 	= false;
 pthread_t 			__mtsp_RuntimeThread;
 
-kmp_task* 			volatile __mtsp_newTasksQueue[NEW_TASKS_QUEUE_SIZE];
-kmp_uint32 			volatile __mtsp_newTQDeps[NEW_TASKS_QUEUE_SIZE];
-kmp_depend_info* 	volatile __mtsp_newTQDepsPointers[NEW_TASKS_QUEUE_SIZE];
-bool				volatile __mtsp_newTQAvailables[NEW_TASKS_QUEUE_SIZE];
-kmp_uint32			volatile __mtsp_newTQReadIndex;
-kmp_uint32			volatile __mtsp_newTQWriteIndex;
+//kmp_task* 			volatile __mtsp_newTasksQueue[SUBMISSION_QUEUE_SIZE];
+//kmp_uint32 			volatile __mtsp_newTQDeps[SUBMISSION_QUEUE_SIZE];
+//kmp_depend_info* 	volatile __mtsp_newTQDepsPointers[SUBMISSION_QUEUE_SIZE];
+//bool				volatile __mtsp_newTQAvailables[SUBMISSION_QUEUE_SIZE];
+//kmp_uint32			volatile __mtsp_newTQReadIndex;
+//kmp_uint32			volatile __mtsp_newTQWriteIndex;
+
+SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueue;
+SPSCQueue<kmp_uint32, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueueNDeps;
+SPSCQueue<kmp_depend_info*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueueDeps;
 
 /// Initialization of locks
 unsigned char volatile __mtsp_lock_initialized 	 = 0;
@@ -35,7 +40,7 @@ __itt_domain*			volatile __itt_mtsp_domain	= nullptr;
 __itt_string_handle* 	volatile __itt_ReadyQueue_Dequeue	= nullptr;
 __itt_string_handle* 	volatile __itt_ReadyQueue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Dequeue	= nullptr;
-__itt_string_handle* 	volatile __itt_New_Tasks_Queue_Enqueue	= nullptr;
+__itt_string_handle* 	volatile __itt_Submission_Queue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Copy		= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Full		= nullptr;
 __itt_string_handle* 	volatile __itt_Finished_Tasks_Queue_Dequeue	= nullptr;
@@ -81,7 +86,7 @@ void __mtsp_initialize() {
 	__itt_ReadyQueue_Dequeue = __itt_string_handle_create("ReadyQueue_Dequeue");
 	__itt_ReadyQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
 	__itt_New_Tasks_Queue_Dequeue = __itt_string_handle_create("New_Tasks_Queue_Dequeue");
-	__itt_New_Tasks_Queue_Enqueue = __itt_string_handle_create("New_Tasks_Queue_Enqueue");
+	__itt_Submission_Queue_Enqueue = __itt_string_handle_create("New_Tasks_Queue_Enqueue");
 	__itt_New_Tasks_Queue_Full = __itt_string_handle_create("New_Tasks_Queue_Full");
 	__itt_New_Tasks_Queue_Copy = __itt_string_handle_create("New_Tasks_Queue_Copy");
 	__itt_Finished_Tasks_Queue_Dequeue = __itt_string_handle_create("Finished_Tasks_Queue_Dequeue");
@@ -103,54 +108,44 @@ void __mtsp_initialize() {
 		__mtsp_taskMetadataStatus[i] = false;
 	}
 
-
-	//===-------- Initialize runtime data structures ----------===//
-	__mtsp_newTasksQueue[0] = (kmp_uint64) 0;
-	__mtsp_newTQDepsPointers[0]	= nullptr;
-	__mtsp_newTQAvailables[0] = false;
-	__mtsp_newTQReadIndex = 0;
-	__mtsp_newTQWriteIndex = 0;
-
 	/// This the original main thread to core-0
 	stick_this_thread_to_core(__MTSP_MAIN_THREAD_CORE__);
 
+	//===-------- Initialize the task graph manager ----------===//
 	__mtsp_initializeTaskGraph();
 
 	pthread_create(&__mtsp_RuntimeThread, NULL, __mtsp_RuntimeThreadCode, NULL);
 }
 
+/**
+ * WARNING: We consider just one producer!!! This method not is thread safe.
+ */
 void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_New_Tasks_Queue_Enqueue);
-	ACQUIRE(&__mtsp_lock_newTasksQueue);
-
-	/// If the position we would write is still in use we need to release the lock
-	/// to let that position to be consumed.. and wait until it is in fact consumed.
-	if (__mtsp_newTQAvailables[__mtsp_newTQWriteIndex]) {
-		RELEASE(&__mtsp_lock_newTasksQueue);
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_New_Tasks_Queue_Full);
-		while (__mtsp_newTQAvailables[__mtsp_newTQWriteIndex]);
-		__itt_task_end(__itt_mtsp_domain);
-		ACQUIRE(&__mtsp_lock_newTasksQueue);
-	}
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Enqueue);
 
 	/// Increment the number of tasks in the system currently
 	ATOMIC_ADD(&__mtsp_inFlightTasks, (kmp_int32)1);
 
-	__mtsp_newTasksQueue[__mtsp_newTQWriteIndex] 	 = newTask;
-	__mtsp_newTQDeps[__mtsp_newTQWriteIndex] 		 = ndeps;
-	__mtsp_newTQDepsPointers[__mtsp_newTQWriteIndex] = (kmp_depend_info*) malloc(sizeof(kmp_depend_info) * ndeps);
-
 	/// TODO: Can we improve this?
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_New_Tasks_Queue_Copy);
-	for (kmp_uint32 i=0; i<ndeps; i++)
-		__mtsp_newTQDepsPointers[__mtsp_newTQWriteIndex][i] = depList[i];
-	__itt_task_end(__itt_mtsp_domain);
+	{
+		newTask->metadata->dep_list = (kmp_depend_info*) malloc(sizeof(kmp_depend_info) * ndeps);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_New_Tasks_Queue_Copy);
+		for (kmp_uint32 i=0; i<ndeps; i++)
+			newTask->metadata->dep_list[i] = depList[i];
+		__itt_task_end(__itt_mtsp_domain);
+	}
 
-	__mtsp_newTQAvailables[__mtsp_newTQWriteIndex]	= true;
-	__mtsp_newTQWriteIndex						= (__mtsp_newTQWriteIndex + 1) % NEW_TASKS_QUEUE_SIZE;
+	newTask->metadata->ndeps = ndeps;
 
-	RELEASE(&__mtsp_lock_newTasksQueue);
+	submissionQueue.enq(newTask);
+
 	__itt_task_end(__itt_mtsp_domain);
+}
+
+void __mtsp_FlushRunQueues() {
+	for (unsigned int i=0; i<__mtsp_numWorkerThreads; i++) {
+		RunQueues[i].fsh();
+	}
 }
 
 void* __mtsp_RuntimeThreadCode(void* params) {
@@ -158,28 +153,30 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	__itt_thread_set_name("MTSPRuntime");
 
 	stick_this_thread_to_core(__MTSP_RUNTIME_THREAD_CORE__);
+	kmp_uint64 iterations = 0;
 
 	while (true) {
-		/// Remove any thread that may have finished execution
-		ACQUIRE(&lock_finishedSlots);
-		if ( finishedSlots[0] > 0 ) {
-			kmp_uint16 idOfFinishedTask = finishedSlots[ finishedSlots[0] ];
-			removeFromTaskGraph(idOfFinishedTask);
-			finishedSlots[0]--;
+#ifdef MTSP_MULTIPLE_RETIRE_QUEUES
+		for (unsigned int i=0; i<__mtsp_numWorkerThreads; i++) {
+			if (RetirementQueues[i].can_deq())
+				removeFromTaskGraph(RetirementQueues[i].deq());
 		}
-		RELEASE(&lock_finishedSlots);
-
+#else
+		if (RetirementQueue.can_deq())
+			removeFromTaskGraph(RetirementQueue.deq());
+#endif
 
 		/// Check if there is any request for new thread creation
-		ACQUIRE(&__mtsp_lock_newTasksQueue);
-		if ( __mtsp_newTQAvailables[__mtsp_newTQReadIndex] && freeSlots[0] > 0 ) {
-			addToTaskGraph(__mtsp_newTasksQueue[__mtsp_newTQReadIndex], __mtsp_newTQDeps[__mtsp_newTQReadIndex], __mtsp_newTQDepsPointers[__mtsp_newTQReadIndex]);
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_New_Tasks_Queue_Dequeue);
-			__mtsp_newTQAvailables[__mtsp_newTQReadIndex]	= false;
-			__mtsp_newTQReadIndex 					= (__mtsp_newTQReadIndex + 1) % NEW_TASKS_QUEUE_SIZE;
-			__itt_task_end(__itt_mtsp_domain);
+		if (freeSlots[0] > 0 && submissionQueue.can_deq()) {
+			addToTaskGraph(submissionQueue.deq());
 		}
-		RELEASE(&__mtsp_lock_newTasksQueue);
+
+		/// This is a hack. It would be nice to have a better algorithm for
+		/// intercore queue that do not suffer from false sharing and also
+		/// do not need this.
+		/// What this actually does is make sure the queues do not get stuck.
+		iterations++;
+		if ((iterations & 0xFF) == 0) __mtsp_FlushRunQueues();
 	}
 
 	return 0;

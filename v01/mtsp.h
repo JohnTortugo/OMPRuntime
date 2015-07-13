@@ -75,7 +75,7 @@
 
 	/// Labels for itt-events representing enqueue and dequeue from the new tasks queue
 	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Dequeue;
-	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Enqueue;
+	extern __itt_string_handle* volatile __itt_Submission_Queue_Enqueue;
 	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Copy;
 	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Full;
 

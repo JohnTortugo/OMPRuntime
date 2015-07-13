@@ -12,8 +12,6 @@
 
 bool 							taskGraphInitialized = false;
 kmp_task*			volatile	tasks[MAX_TASKS];
-kmp_uint32 			volatile 	tasksDeps[MAX_TASKS];
-kmp_depend_info* 	volatile 	tasksDepsPointers[MAX_TASKS];
 kmp_uint64 			volatile	taskGraph[MAX_TASKS];
 kmp_uint16 			volatile	freeSlots[MAX_TASKS + 1];
 kmp_uint16 			volatile	finishedSlots[MAX_TASKS + 1];
@@ -154,15 +152,15 @@ void dumpDependenceMatrix() {
 /// Returns the id of the worker thread that currently has the smaller number
 /// of tasks in its run queue
 kmp_uint16 threadWithSmallerRunQueue() {
-	kmp_uint16 minSize = workerThreadsRunQueue[0][0];;
+//	kmp_uint16 minSize = workerThreadsRunQueue[0][0];;
 	kmp_uint16 minID = 0;
-
-	for (kmp_uint16 i=1; i<__mtsp_numWorkerThreads; i++) {
-		if (workerThreadsRunQueue[i][0] < minSize) {
-			minSize = workerThreadsRunQueue[i][0];
-			minID = i;
-		}
-	}
+	printf("***NOT IMPLEMENTED.\n");
+//	for (kmp_uint16 i=1; i<__mtsp_numWorkerThreads; i++) {
+//		if (workerThreadsRunQueue[i][0] < minSize) {
+//			minSize = workerThreadsRunQueue[i][0];
+//			minID = i;
+//		}
+//	}
 
 	return minID;
 }
@@ -197,17 +195,21 @@ kmp_uint16 nextWorkerThread() {
 #endif
 }
 
-void removeFromTaskGraph(kmp_uint16 idOfFinishedTask) {
+void removeFromTaskGraph(kmp_task* finishedTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Del_Task_From_TaskGraph);
 
+	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
 	kmp_uint64 mask = ~((kmp_uint64)1 << idOfFinishedTask);
 
 	/// Decrement the number of tasks in the system currently
 	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
 
+	/// Remove from the dependence checker the positions that this task owns
+	releaseDependencies(idOfFinishedTask, finishedTask->metadata->ndeps, finishedTask->metadata->dep_list);
+
 	/// Release the taskmetadata slot used
-	if (tasks[idOfFinishedTask]->part_id >= 0) {
-		__mtsp_taskMetadataStatus[tasks[idOfFinishedTask]->part_id] = false;
+	if (finishedTask->metadata->metadata_slot_id >= 0) {
+		__mtsp_taskMetadataStatus[finishedTask->metadata->metadata_slot_id] = false;
 	}
 
 	/// This slot is empty
@@ -215,25 +217,15 @@ void removeFromTaskGraph(kmp_uint16 idOfFinishedTask) {
 	freeSlots[0]++;
 	freeSlots[freeSlots[0]] = idOfFinishedTask;
 
-	releaseDependencies(idOfFinishedTask, tasksDeps[idOfFinishedTask], tasksDepsPointers[idOfFinishedTask]);
-
-	kmp_uint64 newReleases = 0;
-
+	/// Free the dependent tasks
 	for (int slotId=0; slotId<MAX_TASKS; slotId++) {
 		kmp_uint64 prev = taskGraph[slotId];
 		taskGraph[slotId] &= mask;
 
 		/// If the task now has 0 dependences.
 		if (prev != 0 && taskGraph[slotId] == 0) {
-			newReleases++;
-
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Enqueue);
-			/// Check if there is any request for new thread creation
-			ACQUIRE(&lock_readySlots);
-			int idOfNextWorker = nextWorkerThread();
-			int szOfNextWorker = ++workerThreadsRunQueue[idOfNextWorker][0]; 	// note that (++) should come before
-			workerThreadsRunQueue[idOfNextWorker][szOfNextWorker] = slotId;
-			RELEASE(&lock_readySlots);
+			RunQueues[ nextWorkerThread() ].enq( tasks[slotId] );
 			__itt_task_end(__itt_mtsp_domain);
 		}
 	}
@@ -241,15 +233,21 @@ void removeFromTaskGraph(kmp_uint16 idOfFinishedTask) {
 	__itt_task_end(__itt_mtsp_domain);
 }
 
-void addToTaskGraph(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
+void addToTaskGraph(kmp_task* newTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Add_Task_To_TaskGraph);
 	ACQUIRE(&lock_dependenceTable);
+
+	kmp_uint32 ndeps = newTask->metadata->ndeps;
+	kmp_depend_info* depList = newTask->metadata->dep_list;
 
 	/// Obtain id for the new task
 	kmp_uint16 newTaskId = freeSlots[ freeSlots[0]-- ];
 
 	/// depPattern stores a bit pattern representing the dependences of the new task
 	kmp_uint64 depPattern = checkAndUpdateDependencies(newTaskId, ndeps, depList);
+
+	/// Store the task_id of this task
+	newTask->metadata->taskgraph_slot_id = newTaskId;
 
 	/// stores the new task dependence pattern
 	taskGraph[newTaskId] = depPattern;
@@ -258,18 +256,12 @@ void addToTaskGraph(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depLis
 	RELEASE(&lock_dependenceTable);
 
 	/// stores the pointer to the new task
-	tasks[newTaskId] 				= newTask;
-	tasksDeps[newTaskId]			= ndeps;
-	tasksDepsPointers[newTaskId]	= depList;
+	tasks[newTaskId] = newTask;
 
 	/// if the task has depPattern == 0 then it may already be dispatched.
 	if (depPattern == 0) {
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Enqueue);
-		ACQUIRE(&lock_readySlots);
-		int idOfNextWorker = nextWorkerThread();
-		int szOfNextWorker = ++workerThreadsRunQueue[idOfNextWorker][0]; 	// note that (++) should come before
-		workerThreadsRunQueue[idOfNextWorker][szOfNextWorker] = newTaskId;
-		RELEASE(&lock_readySlots);
+		RunQueues[ nextWorkerThread() ].enq(newTask);
 		__itt_task_end(__itt_mtsp_domain);
 	}
 

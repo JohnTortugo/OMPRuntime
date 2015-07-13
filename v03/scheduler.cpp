@@ -8,89 +8,93 @@
 
 pthread_t* 		volatile workerThreads 				= nullptr;
 kmp_uint32* 	volatile workerThreadsIds			= nullptr;
-kmp_uint32** 	volatile workerThreadsRunQueue		= nullptr;
+
+SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RunQueues;
+SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RetirementQueues;
+MPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE> RetirementQueue;
+
+
 kmp_uint32		volatile __mtsp_threadWaitCounter	= 0;
 kmp_int32		volatile __mtsp_inFlightTasks		= 0;
 bool			volatile __mtsp_threadWait			= false;
-kmp_uint32		volatile __mtsp_numWorkerThreads	= 0;
 
+kmp_uint32		volatile __mtsp_numThreads			= 0;
+kmp_uint32		volatile __mtsp_numWorkerThreads	= 0;
 
 void* workerThreadCode(void* params) {
 	kmp_task* taskToExecute = nullptr;
 
 	/// Currently the ID of the thread is also the ID of its target core
 	kmp_uint32* tasksIdent  = (kmp_uint32*) params;
-	kmp_uint16 myId = (*tasksIdent) - __MTSP_WORKER_THREAD_BASE_CORE__;
+	kmp_uint16 myId 		= *tasksIdent;
 
-	stick_this_thread_to_core(*tasksIdent);
+	/// Stick this thread to execute on the "Core X"
+///	stick_this_thread_to_core(*tasksIdent);
 
 	/// Counter for the number of threads
 	kmp_uint64 tasksExecuted = 0;
+	kmp_uint64 iterations = 0;
 
 	while (true) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
-		bool gotLocked = TRY_ACQUIRE(&lock_readySlots);
-		__itt_task_end(__itt_mtsp_domain);
-
-		if (gotLocked) {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Dequeue);
-			int posOfNextTask = workerThreadsRunQueue[myId][0];
-
-			if (posOfNextTask > 0) {
-				kmp_uint16 taskId = workerThreadsRunQueue[myId][posOfNextTask];
-				workerThreadsRunQueue[myId][0] = posOfNextTask - 1;
-				taskToExecute = (kmp_task*) tasks[ taskId ];
+		if (RunQueues[myId].can_deq()) {
+			taskToExecute = (kmp_task*)RunQueues[myId].deq();
 
 #ifdef MTSP_WORK_DISTRIBUTION_FT
-				finishedIDS[0]++;
-				finishedIDS[finishedIDS[0]] = myId;
+			finishedIDS[0]++;
+			finishedIDS[finishedIDS[0]] = myId;
 #endif
-				RELEASE(&lock_readySlots);
-				 __itt_task_end(__itt_mtsp_domain);
 
-				/// Start execution of the task
-				 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
-				(*(taskToExecute->routine))(0, taskToExecute);
-				 __itt_task_end(__itt_mtsp_domain);
+			/// Start execution of the task
+			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+			(*(taskToExecute->routine))(0, taskToExecute);
+			__itt_task_end(__itt_mtsp_domain);
 
-				tasksExecuted++;
+			tasksExecuted++;
 
-				/// Inform that this task has finished execution
-				 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
-				ACQUIRE(&lock_finishedSlots);
-				finishedSlots[0]++;
-				finishedSlots[finishedSlots[0]] = taskId;
-				RELEASE(&lock_finishedSlots);
-				__itt_task_end(__itt_mtsp_domain);
-			}
-			else {
-				RELEASE(&lock_readySlots);
-				 __itt_task_end(__itt_mtsp_domain);
-
-				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
-
-				/// has a barrier been activated?
-				if (__mtsp_threadWait == true) {
-					if (__mtsp_inFlightTasks == 0) {
-						__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Barrier);
-
-						ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
-
-						/// wait until the barrier is released
-						while (__mtsp_threadWait);
-
-						printf("%llu tasks were executed by thread %d.\n", tasksExecuted, myId);
-
-						/// Says that the current thread have visualized the previous update to threadWait
-						ATOMIC_SUB(&__mtsp_threadWaitCounter, 1);
-
-						__itt_task_end(__itt_mtsp_domain);
-					}
-				}
-
-				__itt_task_end(__itt_mtsp_domain);
-			}
+			/// Inform that this task has finished execution
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
+#ifdef MTSP_MULTIPLE_RETIRE_QUEUES
+			RetirementQueues[myId].enq(taskToExecute);
+#else
+			RetirementQueue.enq(taskToExecute);
+#endif
+			__itt_task_end(__itt_mtsp_domain);
 		}
+		else {
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
+
+			/// has a barrier been activated?
+			if (__mtsp_threadWait == true) {
+				if (__mtsp_inFlightTasks == 0) {
+					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Barrier);
+
+					ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
+
+					/// wait until the barrier is released
+					while (__mtsp_threadWait);
+
+					printf("%llu tasks were executed by thread %d.\n", tasksExecuted, myId);
+
+					/// Says that the current thread have visualized the previous update to threadWait
+					ATOMIC_SUB(&__mtsp_threadWaitCounter, 1);
+
+					__itt_task_end(__itt_mtsp_domain);
+				}
+			}
+
+			__itt_task_end(__itt_mtsp_domain);
+		}
+
+		iterations++;
+
+#ifdef MTSP_MULTIPLE_RETIRE_QUEUES
+		if ((iterations & 0xFF) == 0) {
+			RetirementQueues[myId].fsh();
+		}
+#else
+		if (myId == 0 && ((iterations & 0xFF) == 0))
+			RetirementQueue.fsh();
+#endif
 	}
 
 	return nullptr;
@@ -105,22 +109,22 @@ void __mtsp_initScheduler() {
 
 	/// reduce the number of threads used by the runtime (i.e., subtract the runtime thread
 	/// and the initial thread of the program).
+	__mtsp_numThreads		= __mtsp_numWorkerThreads;
 	__mtsp_numWorkerThreads = __mtsp_numWorkerThreads - 2;
 
 	/// Allocate the requested number of threads
 	workerThreads 			= (pthread_t  *) malloc(sizeof(pthread_t)   * __mtsp_numWorkerThreads);
 	workerThreadsIds 		= (kmp_uint32 *) malloc(sizeof(kmp_uint32)  * __mtsp_numWorkerThreads);
-	workerThreadsRunQueue 	= (kmp_uint32 **) malloc(sizeof(kmp_uint32*) * __mtsp_numWorkerThreads);
 
-	/// create the requested number of threads
+	/// We create as many Run-Queues as threads we have. This is in preparation for
+	///  task stealing from the control thread and runtime thread in the future
+	RunQueues				= new SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>[__mtsp_numThreads];
+	RetirementQueues		= new SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>[__mtsp_numThreads];
+
+	/// create the requested number of worker threads
 	for (unsigned int i=0; i<__mtsp_numWorkerThreads; i++) {
 		/// What is the ID/Core of the worker thread
-		workerThreadsIds[i] = __MTSP_WORKER_THREAD_BASE_CORE__ + i;
-
-		/// Allocate a run-queue for the new worker thread. And reset the actual number of
-		/// items in the queue.
-		workerThreadsRunQueue[i] = (kmp_uint32*) malloc(sizeof(kmp_uint32) * MAX_TASKS);
-		workerThreadsRunQueue[i][0] = 0;
+		workerThreadsIds[i] = i;
 
 		/// Create the worker thread
 		pthread_create(&workerThreads[i], NULL, workerThreadCode, (void*)&workerThreadsIds[i]);
