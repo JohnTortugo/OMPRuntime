@@ -9,7 +9,7 @@
 #include "mtsp.h"
 #include "scheduler.h"
 #include "task_graph.h"
-#include "MCRingBuffer.h"
+#include "ThreadedQueue.h"
 
 bool 				volatile __mtsp_initialized 	= false;
 pthread_t 			__mtsp_RuntimeThread;
@@ -22,8 +22,6 @@ pthread_t 			__mtsp_RuntimeThread;
 //kmp_uint32			volatile __mtsp_newTQWriteIndex;
 
 SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueue;
-SPSCQueue<kmp_uint32, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueueNDeps;
-SPSCQueue<kmp_depend_info*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueueDeps;
 
 /// Initialization of locks
 unsigned char volatile __mtsp_lock_initialized 	 = 0;

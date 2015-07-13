@@ -4,7 +4,7 @@
 	#include "kmp.h"
 	#include "ittnotify.h"
 	#include "task_graph.h"
-	#include "MCRingBuffer.h"
+	#include "ThreadedQueue.h"
 
 	#include <pthread.h>
 
@@ -46,9 +46,10 @@
 	///#define MTSP_WORK_DISTRIBUTION_QL	1
 
 	/// Enable this define to use one retirement queue per worker thread
-	#define MTSP_MULTIPLE_RETIRE_QUEUES		1
+	///#define MTSP_MULTIPLE_RETIRE_QUEUES		1
 
-
+	/// Enable this define to use one submission queue per worker thread
+	///#define MTSP_MULTIPLE_RUN_QUEUES 		1
 
 
 
@@ -59,14 +60,12 @@
 	//===----------------------------------------------------------------------===//
 
 	/// Tells whether the MTSP runtime has already been initialized
-	extern bool 			volatile __mtsp_initialized;
+	extern bool volatile __mtsp_initialized;
 
 	/// This is the thread referencing the MTSP runtime thread
 	extern pthread_t __mtsp_RuntimeThread;
 
 	extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueue;
-	extern SPSCQueue<kmp_uint32, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueueNDeps;
-	extern SPSCQueue<kmp_depend_info*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueueDeps;
 
 
 
@@ -135,9 +134,6 @@
 	/// Used to control acess the __mtsp_initialized
 	extern unsigned char volatile __mtsp_lock_initialized;
 
-
-	/// The same lock is used to control all variables related to the new tasks queue
-	extern unsigned char volatile __mtsp_lock_newTasksQueue;
 
 
 

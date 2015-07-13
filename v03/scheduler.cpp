@@ -10,8 +10,10 @@ pthread_t* 		volatile workerThreads 				= nullptr;
 kmp_uint32* 	volatile workerThreadsIds			= nullptr;
 
 SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RunQueues;
+SimpleQueue<kmp_task*, RUN_QUEUES_SIZE> RunQueue;
+
 SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RetirementQueues;
-MPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE> RetirementQueue;
+SimpleQueue<kmp_task*, RUN_QUEUES_SIZE> RetirementQueue;
 
 
 kmp_uint32		volatile __mtsp_threadWaitCounter	= 0;
@@ -36,8 +38,11 @@ void* workerThreadCode(void* params) {
 	kmp_uint64 iterations = 0;
 
 	while (true) {
-		if (RunQueues[myId].can_deq()) {
-			taskToExecute = (kmp_task*)RunQueues[myId].deq();
+#ifdef MTSP_MULTIPLE_RUN_QUEUES
+		if (RunQueues[myId].try_deq(&taskToExecute)) {
+#else
+			if (RunQueue.try_deq(&taskToExecute)) {
+#endif
 
 #ifdef MTSP_WORK_DISTRIBUTION_FT
 			finishedIDS[0]++;
@@ -91,9 +96,6 @@ void* workerThreadCode(void* params) {
 		if ((iterations & 0xFF) == 0) {
 			RetirementQueues[myId].fsh();
 		}
-#else
-		if (myId == 0 && ((iterations & 0xFF) == 0))
-			RetirementQueue.fsh();
 #endif
 	}
 

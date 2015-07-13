@@ -98,6 +98,16 @@ public:
 		return (nextRead != localWrite || ((localWrite = write) != nextRead));
 	}
 
+	bool try_deq(T* elem) {
+		if (can_deq()) {
+			*elem = deq();
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
 	void fsh() {
 		write = nextWrite;
 		read = nextRead;
@@ -211,4 +221,67 @@ public:
 	}
 
 };
+
+/// Single Producer and Single Consumer
+template <typename T, int QUEUE_SIZE>
+class SimpleQueue {
+private:
+	unsigned int length;
+	T* data;
+	bool lock;
+
+public:
+	SimpleQueue() {
+		data = new T[QUEUE_SIZE];
+		length = 0;
+		lock = Q_UNLOCKED;
+	}
+
+	void enq(T elem) {
+		GET_LOCK(&lock);
+		data[length] = elem;
+		length++;
+		RLS_LOCK(&lock);
+	}
+
+	bool can_enq() {
+		GET_LOCK(&lock);
+		bool res (length != QUEUE_SIZE);
+		RLS_LOCK(&lock);
+		return res;
+	}
+
+	T deq() {
+		GET_LOCK(&lock);
+		length--;
+		T elem = data[length];
+		RLS_LOCK(&lock);
+		return elem;
+	}
+
+	bool can_deq() {
+		GET_LOCK(&lock);
+		bool res = (length != 0);
+		RLS_LOCK(&lock);
+		return res;
+	}
+
+	bool try_deq(T* elem) {
+		GET_LOCK(&lock);
+		bool res = (length != 0);
+
+		if (res) {
+			length--;
+			*elem = data[length];
+		}
+
+		RLS_LOCK(&lock);
+		return res;
+	}
+
+	~SimpleQueue() {
+		delete [] data;
+	}
+};
+
 #endif /* MCRINGBUFFER_H_ */

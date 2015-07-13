@@ -29,10 +29,10 @@
 
 	/// This is a matrix. Each line represents a submission queue of one worker thread
 	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RunQueues;
+	extern SimpleQueue<kmp_task*, RUN_QUEUES_SIZE> RunQueue;
 
 	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RetirementQueues;
-
-	extern MPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE> RetirementQueue;
+	extern SimpleQueue<kmp_task*, RUN_QUEUES_SIZE> RetirementQueue;
 
 	void __mtsp_initScheduler();
 
