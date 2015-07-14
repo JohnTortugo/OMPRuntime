@@ -1,0 +1,11 @@
+The differences of this version for version 0.3 are:
+
+	Work stealing:
+		The worker threads may steal work from other threads.
+			When they do not have work
+		
+		The control thread may steal work from the worker threads.
+			When it reachers a taskwait 
+			When the submission queue is almost full
+	
+	These options are all configurable.	

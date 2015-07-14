@@ -12,6 +12,10 @@
 	/// Represents the maximum number of tasks that can be stored in the task graph
 	#define MAX_TASKS 					       64
 
+	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
+	#define SUBMISSION_QUEUE_SIZE			16384
+	#define SUBMISSION_QUEUE_BATCH_SIZE			4
+
 	/// Tells whether we have already initialized the task graph data structures
 	extern bool taskGraphInitialized;
 
@@ -38,6 +42,9 @@
 	/// The ID of the next worker-thread that will receive work (for a ciclic distribution)
 	extern kmp_uint8 idNextWorkerThread;
 
+	/// These vectors are used for collecting statistics
+	extern std::vector<int>	taskGraphSize;
+	extern std::vector<int>	runQueueSize;
 
 
 
