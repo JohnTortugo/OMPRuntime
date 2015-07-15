@@ -14,6 +14,8 @@
 
 
 
+SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueue;
+
 
 void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 	int i 			= 0;

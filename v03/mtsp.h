@@ -65,8 +65,6 @@
 	/// This is the thread referencing the MTSP runtime thread
 	extern pthread_t __mtsp_RuntimeThread;
 
-	extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueue;
-
 
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region

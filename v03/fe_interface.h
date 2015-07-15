@@ -1,5 +1,13 @@
 #include "kmp.h"
 
+/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
+#define SUBMISSION_QUEUE_SIZE			16384
+#define SUBMISSION_QUEUE_BATCH_SIZE			4
+#define SUBMISSION_QUEUE_CF	  			   80
+
+extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE> submissionQueue;
+
+
 /**
 * @brief	In the current implementation this function just parse the "variable argument" list
 * 			and forward the execution to "\param kmpc_micro".
