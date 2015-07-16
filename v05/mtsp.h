@@ -41,9 +41,18 @@
 	///#define MTSP_WORKSTEALING_WT			1
 
 	/// Uncomment if you want the CT to steal work
-	#define MTSP_WORKSTEALING_CT			1
+	///#define MTSP_WORKSTEALING_CT			1
 
 	#define MTSP_DUMP_STATS					1
+
+	/// This is the size of the color vector used by the critical path
+	/// prediction algorithm
+	#define COLOR_VECTOR_SIZE 		((2 * MAX_TASKS) + 2)
+
+	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
+	/// larger than this will use a memory region returned by a call to std malloc.
+	#define TASK_METADATA_MAX_SIZE 1024
+	#define MAX_TASKMETADATA_SLOTS 4096
 
 
 
@@ -61,12 +70,18 @@
 	extern pthread_t __mtsp_RuntimeThread;
 
 
+	/// Used in computation of the critical path. This is used to chose which
+	/// color vector we are creating for the next window
+	extern bool __mtsp_ColorVectorIdx;
+	extern kmp_uint16 __mtsp_ColorVector[COLOR_VECTOR_SIZE];
 
+	/// This tells the condition of the node in the task graph. For an index "i", if
+	/// status[i] == 0 means that there is no current node at position "i", if status[i] == n
+	/// it means that the node has "n-1" dependants.
+	extern kmp_uint16	__mtsp_NodeStatus[MAX_TASKS];
 
-	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
-	/// larger than this will use a memory region returned by a call to std malloc.
-	#define TASK_METADATA_MAX_SIZE 1024
-	#define MAX_TASKMETADATA_SLOTS 4096
+	/// This stores the color of the node, which is a value ranging from 0 to MAX_TASKS
+	extern kmp_uint16	__mtsp_NodeColor[MAX_TASKS];
 
 	/// Memory region from where new tasks metadata will be allocated.
 	extern bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];

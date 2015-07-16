@@ -26,6 +26,8 @@ void __mtsp_initializeTaskGraph() {
 		tasks[i]		= nullptr;
 		taskGraph[i] 	= 0;
 		freeSlots[i+1] 	= i;
+		__mtsp_NodeStatus[i] = 0;
+		__mtsp_NodeColor[i] = 1;
 	}
 
 	freeSlots[0] 		= MAX_TASKS;
@@ -35,7 +37,11 @@ void __mtsp_initializeTaskGraph() {
 	__mtsp_initScheduler();
 }
 
-void dumpDependenceGraphToDot(kmp_uint16 newTaskId=0, kmp_uint64 newDepPattern=0) {
+const char* getNodeColor(int nodeId) {
+	return std::string("0xFF").c_str();
+}
+
+void dumpDependenceGraphToDot(kmp_uint16 newTaskId, kmp_uint64 newDepPattern) {
 	kmp_uint16 indegree[MAX_TASKS+1];
 	std::queue<kmp_uint16> nexts;
 	kmp_uint64 taskGraphCopy[MAX_TASKS];
@@ -46,11 +52,11 @@ void dumpDependenceGraphToDot(kmp_uint16 newTaskId=0, kmp_uint64 newDepPattern=0
 	bool occupied[MAX_TASKS+1];
 	char fileName[100];
 
-	/// We are debugging just the range of 0...1000
-	if (time < 0 || time > 1000) return ;
-
-	/// Number of nodes in the current task graph
-	printf("TaskGraphSize = %d\n", MAX_TASKS - freeSlots[0] + 1);
+//	/// We are debugging just the range of 0...1000
+//	if (time < 0 || time > 1000) return ;
+//
+//	/// Number of nodes in the current task graph
+//	printf("TaskGraphSize = %d\n", MAX_TASKS - freeSlots[0] + 1);
 
 	/// every position is already occupied
 	/// everybody has indegree of zero at the beginning
@@ -95,14 +101,13 @@ void dumpDependenceGraphToDot(kmp_uint16 newTaskId=0, kmp_uint64 newDepPattern=0
 
 	fprintf(fp, "digraph G {\n");
 	fprintf(fp, "rank=min;\n");
-	fprintf(fp, "//NewTaskGraph[%d] = %llu\n", newTaskId, newDepPattern);
 
 	/// Now we actually do the topological sort
 	while (!nexts.empty()) {
 		kmp_uint16 src = nexts.front(); nexts.pop();
 		kmp_uint64 mask = ~((kmp_uint64)1 << src);
 
-		fprintf(fp, "Node_%03d [shape=circle];\n", src);
+		fprintf(fp, "Node_%03d [shape=circle, fillcolor=\"%s\"];\n", src, getNodeColor(src));
 
 		/// See how depends on the task that finished
 		for (int slotId=0; slotId<MAX_TASKS; slotId++) {
@@ -122,6 +127,9 @@ void dumpDependenceGraphToDot(kmp_uint16 newTaskId=0, kmp_uint64 newDepPattern=0
 	fprintf(fp, "}\n");
 	fclose(fp);
 	time++;
+
+	dumpDependenceMatrix();
+	getchar();
 }
 
 void dumpDependenceMatrix() {
@@ -211,9 +219,11 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 		__mtsp_taskMetadataStatus[finishedTask->metadata->metadata_slot_id] = false;
 	}
 
-
 	/// This slot is empty
 	tasks[idOfFinishedTask] = nullptr;
+	__mtsp_NodeColor[idOfFinishedTask] = 0;
+	__mtsp_NodeStatus[idOfFinishedTask] = 0;
+
 	freeSlots[0]++;
 	freeSlots[freeSlots[0]] = idOfFinishedTask;
 
@@ -246,6 +256,39 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	__itt_task_end(__itt_mtsp_domain);
 }
 
+void __mtsp_updateColors(kmp_uint16 newTaskId, kmp_uint64 corPattern) {
+	/// iterate over all readers
+	kmp_uint16 corIdx = 1;
+	kmp_uint16 endCorIdx = 1;
+	kmp_uint16 endCorVal = 1;
+
+	kmp_uint64 prev = corPattern;
+
+	/// while readers are different of zero then there is at least
+	/// one bit set.
+	while (corPattern) {
+		/// If the current rightmost bit is set then "corIdx" contains
+		/// the ID of a reader
+		if (corPattern & 0x00000001) {
+			int cor = __mtsp_ColorVectorIdx*MAX_TASKS + corIdx;
+
+			__mtsp_ColorVector[cor]++;
+
+			if (__mtsp_ColorVector[cor] > endCorVal) {
+				endCorVal = __mtsp_ColorVector[cor];
+				endCorIdx = cor;
+			}
+		}
+
+		corIdx++;
+		corPattern = corPattern >> 1;
+	}
+
+	printf("The colorset of %02d is %02d, its color is %02d\n", newTaskId, prev, endCorIdx);
+
+	__mtsp_NodeColor[newTaskId] = endCorIdx;
+}
+
 void addToTaskGraph(kmp_task* newTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Add_Task_To_TaskGraph);
 	ACQUIRE(&lock_dependenceTable);
@@ -256,8 +299,16 @@ void addToTaskGraph(kmp_task* newTask) {
 	/// Obtain id for the new task
 	kmp_uint16 newTaskId = freeSlots[ freeSlots[0]-- ];
 
+	/// This will contain the ID of the colors of the new node parents
+	kmp_uint64 corPattern = 1;
+
 	/// depPattern stores a bit pattern representing the dependences of the new task
-	kmp_uint64 depPattern = checkAndUpdateDependencies(newTaskId, ndeps, depList);
+	kmp_uint64 depPattern = checkAndUpdateDependencies(newTaskId, ndeps, depList, corPattern);
+
+	/// We also add one more children to the status of the reader
+	__mtsp_NodeStatus[newTaskId] = 1;
+
+	__mtsp_updateColors(newTaskId, corPattern);
 
 	/// Store the task_id of this task
 	newTask->metadata->taskgraph_slot_id = newTaskId;

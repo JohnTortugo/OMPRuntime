@@ -65,6 +65,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_With_Deps);
 
 	/// TODO: needs to assert \param ndeps_noalias always zero.
+	printf("Numero de deps = %d\n", ndeps);
 
 	/// Ask to add this task to the task graph
 	__mtsp_addNewTask(new_task, ndeps, dep_list);

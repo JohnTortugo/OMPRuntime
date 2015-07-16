@@ -1,0 +1,4 @@
+The differences of this version for version 0.4 are:
+
+	Algorithm to compute the critical path in order to prioritize the execution
+	of some tasks over others.	

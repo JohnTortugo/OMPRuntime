@@ -57,6 +57,8 @@
 	void __mtsp_initializeTaskGraph();
 
 
+	void dumpDependenceGraphToDot(kmp_uint16 newTaskId, kmp_uint64 newDepPattern);
+
 	/// Used to add a new task to the task graph
 	void addToTaskGraph(kmp_task*);
 

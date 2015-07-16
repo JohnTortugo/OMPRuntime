@@ -50,12 +50,13 @@ void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depe
 	__itt_task_end(__itt_mtsp_domain);
 }
 
-kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, kmp_depend_info* depList) {
+kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, kmp_depend_info* depList, kmp_uint64& corPattern) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Checking_Dependences);
 
 	kmp_uint64 depPattern = 0;
-	printf("Numero de deps = %d\n", ndeps);
+	corPattern = 1;
 
+	printf("Numero de deps = %d\n", ndeps);
 
 	/// Iterate over each dependence
 	for (kmp_uint32 depIdx=0; depIdx<ndeps; depIdx++) {
@@ -66,6 +67,8 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 
 		/// <ID_OF_LAST_WRITER, IDS_OF_CURRENT_READERS>
 		std::pair<kmp_uint32, kmp_uint64> hashValue;
+
+		printf("Checking base addr %x  --> %d\n", baseAddr, hashEntry != dependenceTable.end());
 
 		/// Is someone already accessing this address?
 		if (hashEntry != dependenceTable.end()) {
@@ -81,10 +84,39 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 			if (isOutput) {
 				if (hashValue.second != 0) {
 					depPattern = depPattern | hashValue.second;
+
+					/// iterate over all readers
+					kmp_uint64 readers = hashValue.second;
+					kmp_uint16 readIdx = 0;
+
+					/// while readers are different of zero then there is at least
+					/// one bit set.
+					while (readers) {
+						/// If the current rightmost bit is set then "readIdx" contains
+						/// the ID of a reader
+						if (readers & 0x00000001) {
+							/// If the "readIdx" is actually in the newest window...
+							if ((__mtsp_NodeColor[readIdx] & 0x40)  == __mtsp_ColorVectorIdx)
+								corPattern = corPattern | ((kmp_uint64)1 << __mtsp_NodeColor[readIdx]);
+
+							/// We also add one more children to the status of the reader
+							__mtsp_NodeStatus[readIdx]++;
+						}
+
+						readIdx++;
+						readers = readers >> 1;
+					}
 				}
 				else {
 					kmp_uint16 lastWriterId = hashValue.first >> 16;
 					depPattern = depPattern | ((kmp_uint64)1 << lastWriterId);
+
+					/// If the "lastWriterId" is actually in the newest window...
+					if ((__mtsp_NodeColor[lastWriterId] & 0x40)  == __mtsp_ColorVectorIdx)
+						corPattern = corPattern | ((kmp_uint64)1 << __mtsp_NodeColor[lastWriterId]);
+
+					/// We also add one more children to the status of the reader
+					__mtsp_NodeStatus[lastWriterId]++;
 				}
 
 				hashValue.first  = ((kmp_uint32)newTaskId << 16) | ((kmp_uint16)isInput << 1) | isOutput;
@@ -98,6 +130,13 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 				if (hashValue.first != 0) {
 					kmp_uint16 lastWriterId = hashValue.first >> 16;
 					depPattern = depPattern | ((kmp_uint64)1 << lastWriterId);
+
+					/// If the "lastWriterId" is actually in the newest window...
+					if ((__mtsp_NodeColor[lastWriterId] & 0x40)  == __mtsp_ColorVectorIdx)
+						corPattern = corPattern | ((kmp_uint64)1 << __mtsp_NodeColor[lastWriterId]);
+
+					/// We also add one more children to the status of the reader
+					__mtsp_NodeStatus[lastWriterId]++;
 				}
 
 				hashValue.second = hashValue.second | ((kmp_uint64)1 << newTaskId);
@@ -119,6 +158,8 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 
 		dependenceTable[baseAddr] = hashValue;
 	}
+
+	printf("The dependence pattern is 0x%x\n", depPattern);
 
 	__itt_task_end(__itt_mtsp_domain);
 	return depPattern;

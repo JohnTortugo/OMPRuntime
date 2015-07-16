@@ -1,11 +1,11 @@
-#include <cstdio>
-#include <cstdlib>
-#include <cstdarg>
-#include <sys/time.h>
-
 #include "kmp.h"
-#include "debug.h"
-#include "timing.h"
+
+/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
+#define SUBMISSION_QUEUE_SIZE			 4096
+#define SUBMISSION_QUEUE_BATCH_SIZE			4
+#define SUBMISSION_QUEUE_CF	  			   80
+
+extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
 
 
 /**
@@ -20,36 +20,7 @@
 * @param 	microtask  	Pointer to callback routine (usually .omp_microtask) consisting of outlined "omp parallel" construct
 * @param 	...  		Pointers to shared variables that aren't global
 */
-void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
-#if DEBUG_ENABLED
-	DEBUG_kmpc_fork_call(loc, argc);
-#endif
-
-	MTSP_TIME_START(Fork_call);
-
-	int i 			= 0;
-	int tid 		= 0;
-    void** argv 	= (void **) malloc(sizeof(void *) * argc);
-    void** argvcp 	= argv;
-
-    va_list ap;
-	va_start(ap, microtask);
-
-    for(i=0; i < argc; i++)
-        *argv++ = va_arg(ap, void *);
-
-	va_end(ap);
-
-    MTSP_TIME_ACCUMULATE_AND_RESET(Fork_call);
-
-	/// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
-    (microtask)(&tid, &tid, argvcp[0]);
-
-    MTSP_TIME_DUMP(Fork_call);
-    MTSP_TIME_DUMP(Task_alloc);
-    MTSP_TIME_DUMP(Task);
-    MTSP_TIME_DUMP(DEBUG_Fork_call);
-}
+void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...);
 
 
 
@@ -72,23 +43,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 *
 * @return	Returns a pointer to the newly allocated task+metadata.
 */
-kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task_t, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry) {
-	DEBUG_kmpc_omp_task_alloc(loc, gtid, pflags, sizeof_kmp_task_t, sizeof_shareds, task_entry);
-	MTSP_TIME_START(Task_alloc);
-
-	size_t shareds_offset 	= sizeof(kmp_taskdata) + sizeof_kmp_task_t;
-
-    kmp_taskdata* taskdata 	= (kmp_taskdata*) malloc(shareds_offset + sizeof_shareds);
-
-    kmp_task* task			= KMP_TASKDATA_TO_TASK(taskdata);
-
-    task->shareds			= (sizeof_shareds > 0) ? &((char *) taskdata)[shareds_offset] : NULL;
-    task->routine           = task_entry;
-
-    MTSP_TIME_ACCUMULATE_AND_RESET(Task_alloc);
-
-    return task;
-}
+kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task_t, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry);
 
 
 
@@ -111,20 +66,7 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
  * @return 	Returns either TASK_CURRENT_NOT_QUEUED if the current task was not suspendend and
  * 			queued, or TASK_CURRENT_QUEUED if it was suspended and queued.
  */
-kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
-	DEBUG_kmpc_omp_task_with_deps(loc, gtid, new_task, ndeps, dep_list, ndeps_noalias, noalias_dep_list);
-	MTSP_TIME_START(Task);
-
-	printf("Numero de deps = %d\n", ndeps);
-
-
-	/// This actually calls @.omp_ptask. which will finally call the kernel function.
-	(*(new_task->routine))(gtid, new_task);
-
-    MTSP_TIME_ACCUMULATE_AND_RESET(Task);
-
-	return 0;
-}
+kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list);
 
 
 
@@ -140,11 +82,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
  *  @return	This was not described in the documentation. Analyzing the LLVM IR code the return is
  *  		discarded.
  */
-kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
-	DEBUG_kmpc_omp_taskwait(loc, gtid);
-
-	return 0;
-}
+kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid);
 
 
 
@@ -152,9 +90,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 /**
  * @brief	Lock/Barrier related function. Currently not used in MTSP.
  */
-kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
-    return 0;
-}
+kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid);
 
 
 
@@ -162,9 +98,7 @@ kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
 /**
  * @brief	Test whether to execute a <tt>single</tt> construct.
  */
-kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
-    return 1;
-}
+kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid);
 
 
 
@@ -172,9 +106,7 @@ kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
 /**
  * @brief	Lock/Barrier related function. Currently not used in MTSP.
  */
-void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
-	return ;
-}
+void __kmpc_end_single(ident* loc, kmp_int32 gtid);
 
 
 
@@ -182,9 +114,7 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 /**
  * @brief	Should return 1 if the thread gtid should execute the <tt>master</tt> block, 0 otherwise.
  */
-kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
-	return 1;
-}
+kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid);
 
 
 
@@ -192,5 +122,9 @@ kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
 /**
  * @brief	Lock/Barrier related function. Currently not used in MTSP.
  */
-void __kmpc_end_master(ident* loc, kmp_int32 gtid) {
+void __kmpc_end_master(ident* loc, kmp_int32 gtid);
+
+extern "C" {
+	int omp_get_num_threads();
 }
+
