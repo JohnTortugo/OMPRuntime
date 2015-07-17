@@ -13,10 +13,10 @@ SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* StealQueues;
 std::pair<bool, kmp_int16> volatile * StealStatus;
 
 SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE, RUN_QUEUES_CF>* RunQueues;
-SimpleQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUE_CF> RunQueue;
+SimpleQueue<kmp_task*, RUN_QUEUE_SIZE, RUN_QUEUE_CF> RunQueuea;
 
 SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE>* RetirementQueues;
-SimpleQueue<kmp_task*, RUN_QUEUES_SIZE> RetirementQueue;
+SimpleQueue<kmp_task*, RETIREMENT_QUEUE_SIZE> RetirementQueue;
 
 
 kmp_uint32		volatile __mtsp_threadWaitCounter	= 0;
@@ -72,7 +72,7 @@ void* workerThreadCode(void* params) {
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 		if (RunQueues[myId].try_deq(&taskToExecute) || StealQueues[myId].try_deq(&taskToExecute)) {
 #else
-		if (RunQueue.try_deq(&taskToExecute)) {
+		if (RunQueuea.try_deq(&taskToExecute)) {
 #endif
 
 #ifdef MTSP_WORK_DISTRIBUTION_FT

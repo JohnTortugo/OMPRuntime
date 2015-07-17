@@ -110,7 +110,7 @@ public:
 	}
 
 	int cur_load() {
-		fsh();
+		//fsh();
 
 		int w = write, r = read;
 
@@ -246,9 +246,9 @@ public:
 template <typename T, int QUEUE_SIZE, int CONT_FACTOR=100>
 class SimpleQueue {
 private:
-	unsigned int length;
-	T* data;
-	bool lock;
+	volatile unsigned int length;
+	volatile T * data;
+	volatile bool lock;
 
 public:
 	SimpleQueue() {

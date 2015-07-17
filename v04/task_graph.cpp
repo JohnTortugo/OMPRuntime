@@ -228,11 +228,11 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 			RunQueues[ nextWorkerThread() ].enq( tasks[slotId] );
 #else
-			RunQueue.enq( tasks[slotId] );
+			RunQueuea.enq( tasks[slotId] );
 #endif
 
 #ifdef MTSP_DUMP_STATS
-			runQueueSize.push_back(RunQueue.cur_load());
+			runQueueSize.push_back(RunQueuea.cur_load());
 #endif
 
 			__itt_task_end(__itt_mtsp_domain);
@@ -277,11 +277,11 @@ void addToTaskGraph(kmp_task* newTask) {
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 		RunQueues[ nextWorkerThread() ].enq( newTask );
 #else
-		RunQueue.enq( newTask );
+		RunQueuea.enq( newTask );
 #endif
 
 #ifdef MTSP_DUMP_STATS
-		runQueueSize.push_back(RunQueue.cur_load());
+		runQueueSize.push_back(RunQueuea.cur_load());
 #endif
 		__itt_task_end(__itt_mtsp_domain);
 	}

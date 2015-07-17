@@ -8,10 +8,13 @@
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
 	#define RUN_QUEUES_SIZE				64
+	#define RUN_QUEUE_SIZE				64
 	#define RUN_QUEUES_BATCH_SIZE		 4
 	#define RUN_QUEUES_CF			     5
 	#define RUN_QUEUE_CF			    50
 
+
+	#define RETIREMENT_QUEUE_SIZE		64
 
 	/// The bool var is used to set a flag indicating that worker threads must "barrier" synchronize
 	/// The counter is used to count how many threads have already reached to the barrier
@@ -33,7 +36,7 @@
 
 	/// This is a matrix. Each line represents a submission/steal queue of one worker thread
 	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE, RUN_QUEUES_CF>* RunQueues;
-	extern SimpleQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUE_CF> RunQueue;
+	extern SimpleQueue<kmp_task*, RUN_QUEUE_SIZE, RUN_QUEUE_CF> RunQueuea;
 
 	/// Each core also has a queue for work stealing. The idea is that the victim will
 	/// add work on the StealQueue of the steal thread. The StealStatus is used to keep
@@ -42,7 +45,7 @@
 	extern std::pair<bool, kmp_int16> volatile * StealStatus;
 
 	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RetirementQueues;
-	extern SimpleQueue<kmp_task*, RUN_QUEUES_SIZE> RetirementQueue;
+	extern SimpleQueue<kmp_task*, RETIREMENT_QUEUE_SIZE> RetirementQueue;
 
 	void __mtsp_initScheduler();
 

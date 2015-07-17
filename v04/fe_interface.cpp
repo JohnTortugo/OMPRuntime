@@ -53,21 +53,21 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 }
 
 kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int32* memorySlotId) {
-	if (numBytes > TASK_METADATA_MAX_SIZE) {
-		printf("Request for metadata slot to big: %u\n", numBytes);
-		return (kmp_taskdata*) malloc(numBytes);
-	}
-	else {
-		for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
-			if (__mtsp_taskMetadataStatus[i] == false) {
-				__mtsp_taskMetadataStatus[i] = true;
-				*memorySlotId = i;
-				return  (kmp_taskdata*) __mtsp_taskMetadataBuffer[i];
-			}
-		}
-	}
-
-	//fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots.\n", __FUNCTION__, __LINE__);
+//	if (numBytes > TASK_METADATA_MAX_SIZE) {
+//		printf("Request for metadata slot to big: %u\n", numBytes);
+//		return (kmp_taskdata*) malloc(numBytes);
+//	}
+//	else {
+//		for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
+//			if (__mtsp_taskMetadataStatus[i] == false) {
+//				__mtsp_taskMetadataStatus[i] = true;
+//				*memorySlotId = i;
+//				return  (kmp_taskdata*) __mtsp_taskMetadataBuffer[i];
+//			}
+//		}
+//	}
+//
+//	fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots.\n", __FUNCTION__, __LINE__);
 
 	/// Lets take the "safe" side here..
 	return (kmp_taskdata*) malloc(numBytes);
@@ -102,7 +102,6 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	return 0;
 }
 
-
 void steal_from_single_run_queue(bool just_a_bit) {
 	kmp_task* taskToExecute = nullptr;
 	kmp_uint16 myId = __mtsp_numWorkerThreads;
@@ -111,19 +110,19 @@ void steal_from_single_run_queue(bool just_a_bit) {
 
 	while (true) {
 		if (just_a_bit) {
-			if (RunQueue.cur_load() < RunQueue.cont_load()) break;
+			if (RunQueuea.cur_load() < RunQueuea.cont_load()) break;
 		}
 		else {
 			if (submissionQueue.cur_load() <= 0) break;
 		}
 
-		if (RunQueue.try_deq(&taskToExecute)) {
+		if (RunQueuea.try_deq(&taskToExecute)) {
 #ifdef MTSP_WORK_DISTRIBUTION_FT
 			finishedIDS[0]++;
 			finishedIDS[finishedIDS[0]] = myId;
 #endif
 
-			/// Start execution of the task
+//			/// Start execution of the task
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
 			(*(taskToExecute->routine))(0, taskToExecute);
 			__itt_task_end(__itt_mtsp_domain);
@@ -244,13 +243,13 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	/// Flush the current state of the submission queues..
 	submissionQueue.fsh();
 
-#ifdef MTSP_WORKSTEALING_CT
-	#ifdef MTSP_MULTIPLE_RUN_QUEUES
-		steal_from_multiple_run_queue(false);
-	#else
+//#ifdef MTSP_WORKSTEALING_CT
+//	#ifdef MTSP_MULTIPLE_RUN_QUEUES
+//		steal_from_multiple_run_queue(false);
+//	#else
 		steal_from_single_run_queue(false);
-	#endif
-#endif
+//	#endif
+//#endif
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
 

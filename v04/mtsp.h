@@ -43,7 +43,7 @@
 	/// Uncomment if you want the CT to steal work
 	#define MTSP_WORKSTEALING_CT			1
 
-	#define MTSP_DUMP_STATS					1
+	///#define MTSP_DUMP_STATS					1
 
 
 
