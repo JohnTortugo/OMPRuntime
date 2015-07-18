@@ -11,8 +11,11 @@
 #include "task_graph.h"
 #include "ThreadedQueue.h"
 
-bool 				volatile __mtsp_initialized 	= false;
-pthread_t 			__mtsp_RuntimeThread;
+bool 				volatile 	__mtsp_initialized 	= false;
+pthread_t 						__mtsp_RuntimeThread;
+bool 				volatile 	__mtsp_test 		= false;
+
+
 
 /// Initialization of locks
 unsigned char volatile __mtsp_lock_initialized 	 = 0;

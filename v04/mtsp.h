@@ -20,7 +20,7 @@
 	/// #define	INTEL_NO_ITTNOFIFY_API	1
 
 	/// Work distribution in a round robin way
-	///#define MTSP_WORK_DISTRIBUTION_RR		1
+	#define MTSP_WORK_DISTRIBUTION_RR		1
 
 	/// Work distribution based on a finish token
 	///#define MTSP_WORK_DISTRIBUTION_FT	1
@@ -35,10 +35,10 @@
 	///#define MTSP_MULTIPLE_RETIRE_QUEUES		1
 
 	/// Enable this define to use one submission queue per worker thread
-	///#define MTSP_MULTIPLE_RUN_QUEUES 		1
+	#define MTSP_MULTIPLE_RUN_QUEUES 		1
 
 	/// Uncomment if you want the worker threads to steal work
-	///#define MTSP_WORKSTEALING_WT			1
+	#define MTSP_WORKSTEALING_WT			1
 
 	/// Uncomment if you want the CT to steal work
 	#define MTSP_WORKSTEALING_CT			1
@@ -60,7 +60,7 @@
 	/// This is the thread referencing the MTSP runtime thread
 	extern pthread_t __mtsp_RuntimeThread;
 
-
+	extern bool volatile __mtsp_test;
 
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
@@ -79,6 +79,7 @@
 	//===-------- These vars are used to interact with VTune ----------===//
 	/// ITTNotify domain of events/tasks/frames
 	extern __itt_domain* 		volatile __itt_mtsp_domain;
+	extern __itt_domain* 		volatile __itt_mtsp_domain2;
 
 	/// Labels for itt-events representing enqueue and dequeue from the ready tasks queue
 	extern __itt_string_handle* volatile __itt_ReadyQueue_Dequeue;

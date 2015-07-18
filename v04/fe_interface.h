@@ -1,9 +1,9 @@
 #include "kmp.h"
 
 /// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-#define SUBMISSION_QUEUE_SIZE			 4096
+#define SUBMISSION_QUEUE_SIZE			 1024
 #define SUBMISSION_QUEUE_BATCH_SIZE			4
-#define SUBMISSION_QUEUE_CF	  			   80
+#define SUBMISSION_QUEUE_CF	  			   10
 
 extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
 
