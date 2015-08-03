@@ -10,7 +10,7 @@ pthread_t* 		volatile workerThreads 				= nullptr;
 kmp_uint32* 	volatile workerThreadsIds			= nullptr;
 
 SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* StealQueues;
-std::pair<bool, kmp_int16> volatile * StealStatus;
+std::pair<bool, kmp_int16> volatile * StealRequest;
 
 SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE, RUN_QUEUES_CF>* RunQueues;
 SimpleQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUE_CF> RunQueue;
@@ -101,7 +101,7 @@ void* workerThreadCode(void* params) {
 			/// Since we could not dequeue a task our queue is empty. We are going to
 			/// try to steal some tasks >D
 			kmp_uint16 victim = random() % __mtsp_numWorkerThreads;
-			CAS(&StealStatus[victim].second, -1, myId);
+			CAS(&StealRequest[victim].second, -1, myId);
 #endif
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
 
@@ -131,11 +131,11 @@ void* workerThreadCode(void* params) {
 
 #if defined(MTSP_MULTIPLE_RUN_QUEUES) && (defined(MTSP_WORKSTEALING_CT) || defined(MTSP_WORKSTEALING_WT))
 		/// Check if there is an steal request pending...
-		if (StealStatus[myId].second >= 0) {
-			serviceSteal(myId, StealStatus[myId].second);
+		if (StealRequest[myId].second >= 0) {
+			serviceSteal(myId, StealRequest[myId].second);
 
 			/// Reset pending steal to false
-			CAS(&StealStatus[myId].second, StealStatus[myId].second, -1);
+			CAS(&StealRequest[myId].second, StealRequest[myId].second, -1);
 		}
 #endif
 
@@ -174,7 +174,7 @@ void __mtsp_initScheduler() {
 	RetirementQueues		= new SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE>[__mtsp_numThreads];
 
 	StealQueues				= new SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE>[__mtsp_numThreads];
-	StealStatus				= new std::pair<bool, kmp_int16>[__mtsp_numThreads];
+	StealRequest				= new std::pair<bool, kmp_int16>[__mtsp_numThreads];
 
 	/// create the requested number of worker threads
 	for (unsigned int i=0; i<__mtsp_numWorkerThreads; i++) {
@@ -182,8 +182,8 @@ void __mtsp_initScheduler() {
 		workerThreadsIds[i] = i;
 
 		/// Initialize steal status to: <not_ready, not_requested>
-		StealStatus[i].first = false;
-		StealStatus[i].second = -1;
+		StealRequest[i].first = false;
+		StealRequest[i].second = -1;
 
 		/// Create the worker thread
 		pthread_create(&workerThreads[i], NULL, workerThreadCode, (void*)&workerThreadsIds[i]);

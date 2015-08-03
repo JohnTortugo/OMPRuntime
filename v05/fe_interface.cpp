@@ -186,20 +186,20 @@ void steal_from_multiple_run_queue(bool just_a_bit) {
 	if (just_a_bit) {
 		kmp_uint16 victim = random() % __mtsp_numWorkerThreads;
 		//printf("Trying steal. Victim [%d], Stealer [%d]\n", victim, myId);
-		CAS(&StealStatus[victim].second, -1, myId);
+		CAS(&StealRequest[victim].second, -1, myId);
 
 		/// Wait until the status of the requisition change to see if we got work
-		while (StealStatus[victim].second == myId);
+		while (StealRequest[victim].second == myId);
 
 		executeStealed();
 	}
 	else {
 		while (submissionQueue.cur_load() > 0) {
 			kmp_uint16 victim = random() % __mtsp_numWorkerThreads;
-			CAS(&StealStatus[victim].second, -1, myId);
+			CAS(&StealRequest[victim].second, -1, myId);
 
 			/// Wait until the status of the requisition change to see if we got work
-			while (StealStatus[victim].second == myId);
+			while (StealRequest[victim].second == myId);
 
 			executeStealed();
 		}

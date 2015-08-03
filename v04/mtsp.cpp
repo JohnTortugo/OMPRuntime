@@ -13,7 +13,7 @@
 
 bool 				volatile 	__mtsp_initialized 	= false;
 pthread_t 						__mtsp_RuntimeThread;
-bool 				volatile 	__mtsp_test 		= false;
+bool 				volatile 	__mtsp_Single 		= false;
 
 
 

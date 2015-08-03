@@ -43,7 +43,7 @@
 	/// Uncomment if you want the CT to steal work
 	#define MTSP_WORKSTEALING_CT			1
 
-	///#define MTSP_DUMP_STATS					1
+	#define MTSP_DUMP_STATS					1
 
 
 
@@ -60,7 +60,7 @@
 	/// This is the thread referencing the MTSP runtime thread
 	extern pthread_t __mtsp_RuntimeThread;
 
-	extern bool volatile __mtsp_test;
+	extern bool volatile __mtsp_Single;
 
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region

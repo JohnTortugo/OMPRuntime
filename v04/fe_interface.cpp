@@ -32,7 +32,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     	srandom( time(NULL) );
 
     	__mtsp_initialized = true;
-    	__mtsp_test = false;
+    	__mtsp_Single = false;
 
     	//===-------- The thread that initialize the runtime is the Control Thread ----------===//
     	__itt_thread_set_name("ControlThread");
@@ -192,20 +192,20 @@ void steal_from_multiple_run_queue(bool just_a_bit) {
 	if (just_a_bit) {
 		kmp_uint16 victim = random() % __mtsp_numWorkerThreads;
 		//printf("Trying steal. Victim [%d], Stealer [%d]\n", victim, myId);
-		CAS(&StealStatus[victim].second, -1, myId);
+		CAS(&StealRequest[victim].second, -1, myId);
 
 		/// Wait until the status of the requisition change to see if we got work
-		while (StealStatus[victim].second == myId);
+		while (StealRequest[victim].second == myId);
 
 		executeStealed();
 	}
 	else {
 		while (submissionQueue.cur_load() > 0) {
 			kmp_uint16 victim = random() % __mtsp_numWorkerThreads;
-			CAS(&StealStatus[victim].second, -1, myId);
+			CAS(&StealRequest[victim].second, -1, myId);
 
 			/// Wait until the status of the requisition change to see if we got work
-			while (StealStatus[victim].second == myId);
+			while (StealRequest[victim].second == myId);
 
 			executeStealed();
 		}
@@ -249,7 +249,59 @@ void dumpStats() {
 }
 
 kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
-	ACQUIRE(&__mtsp_test);
+	/// Flush the current state of the submission queues..
+	submissionQueue.fsh();
+
+#ifdef MTSP_WORKSTEALING_CT
+	#ifdef MTSP_MULTIPLE_RUN_QUEUES
+		steal_from_multiple_run_queue(false);
+	#else
+		steal_from_single_run_queue(false);
+	#endif
+#endif
+
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
+
+	/// TODO: have to check if we aren't already at a barrier. This may happen
+	/// if we let several threads to call taskwait();
+
+	/// Reset the number of threads that have currently reached the barrier
+	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
+
+	/// Tell threads that they should synchronize at a barrier
+	ATOMIC_OR(&__mtsp_threadWait, 1);
+
+	/// Wait until all threads have reached the barrier
+	while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads);
+
+	/// OK. Now all threads have reached the barrier. We now free then to continue execution
+	ATOMIC_AND(&__mtsp_threadWait, 0);
+
+	/// Before we continue we need to make sure that all threads have "seen" the previous
+	/// updated value of threadWait
+	while (__mtsp_threadWaitCounter != 0);
+
+	__itt_task_end(__itt_mtsp_domain);
+
+#ifdef MTSP_DUMP_STATS
+	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
+#endif
+
+	return 0;
+}
+
+kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
+	//printf("__kmpc_cancel_barrier %s:%d\n", __FILE__, __LINE__);
+    return 0;
+}
+
+kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
+	//printf("__kmpc_single %s:%d\n", __FILE__, __LINE__);
+	return TRY_ACQUIRE(&__mtsp_Single);
+}
+
+void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
+	//printf("__kmpc_end_single %s:%d\n", __FILE__, __LINE__);
 
 	/// Flush the current state of the submission queues..
 	submissionQueue.fsh();
@@ -285,33 +337,17 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 
 	__itt_task_end(__itt_mtsp_domain);
 
-	RELEASE(&__mtsp_test);
-
-	return 0;
-}
-
-kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
-	//printf("Got here %s:%d\n", __FILE__, __LINE__);
-    return 0;
-}
-
-kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
-	//printf("Got here %s:%d\n", __FILE__, __LINE__);
-    return 1;
-}
-
-void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
-	//printf("Got here %s:%d\n", __FILE__, __LINE__);
+	RELEASE(&__mtsp_Single);
 	return ;
 }
 
 kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
-	//printf("Got here %s:%d\n", __FILE__, __LINE__);
+	//printf("__kmpc_master %s:%d\n", __FILE__, __LINE__);
 	return 1;
 }
 
 void __kmpc_end_master(ident* loc, kmp_int32 gtid) {
-	//printf("Got here %s:%d\n", __FILE__, __LINE__);
+	//printf("__kmpc_end_master %s:%d\n", __FILE__, __LINE__);
 }
 
 int omp_get_num_threads() {

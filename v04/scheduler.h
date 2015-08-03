@@ -42,7 +42,8 @@
 	/// add work on the StealQueue of the steal thread. The StealStatus is used to keep
 	/// track of <is_any_steal_request, from_who>.
 	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE>* StealQueues;
-	extern std::pair<bool, kmp_int16> volatile * StealStatus;
+	extern std::pair<bool, kmp_int16> volatile * StealRequest;
+	extern bool volatile * WaitingStealAnswer;
 
 	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE,RUN_QUEUES_BATCH_SIZE>* RetirementQueues;
 	extern SimpleQueue<kmp_task*, RETIREMENT_QUEUE_SIZE> RetirementQueue;
