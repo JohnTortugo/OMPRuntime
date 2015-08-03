@@ -55,9 +55,6 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 
 	kmp_uint64 depPattern = 0;
 
-	printf("Numero de deps = %d\n", ndeps);
-
-
 	/// Iterate over each dependence
 	for (kmp_uint32 depIdx=0; depIdx<ndeps; depIdx++) {
 		auto baseAddr 	= depList[depIdx].base_addr;

@@ -35,7 +35,7 @@
 	///#define MTSP_MULTIPLE_RETIRE_QUEUES		1
 
 	/// Enable this define to use one submission queue per worker thread
-	#define MTSP_MULTIPLE_RUN_QUEUES 		1
+	///#define MTSP_MULTIPLE_RUN_QUEUES 		1
 
 	/// Uncomment if you want the worker threads to steal work
 	#define MTSP_WORKSTEALING_WT			1
@@ -43,7 +43,7 @@
 	/// Uncomment if you want the CT to steal work
 	#define MTSP_WORKSTEALING_CT			1
 
-	#define MTSP_DUMP_STATS					1
+	///#define MTSP_DUMP_STATS					1
 
 
 

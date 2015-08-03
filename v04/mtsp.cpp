@@ -189,7 +189,10 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		/// do not need this.
 		/// What this actually does is make sure the queues do not get stuck.
 		iterations++;
-		if ((iterations & 0xFF) == 0) __mtsp_FlushRunQueues();
+		if ((iterations & 0xFF) == 0) {
+			__mtsp_FlushRunQueues();
+			submissionQueue.fsh();
+		}
 	}
 
 	return 0;

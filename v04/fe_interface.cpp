@@ -284,7 +284,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	__itt_task_end(__itt_mtsp_domain);
 
 #ifdef MTSP_DUMP_STATS
-	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
+	printf("%llu tasks were executed by the control thread.\n\n", tasksExecutedByCT);
 #endif
 
 	return 0;
@@ -310,7 +310,7 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	#ifdef MTSP_MULTIPLE_RUN_QUEUES
 		steal_from_multiple_run_queue(false);
 	#else
-		steal_from_single_run_queue(false);
+//		steal_from_single_run_queue(false);
 	#endif
 #endif
 

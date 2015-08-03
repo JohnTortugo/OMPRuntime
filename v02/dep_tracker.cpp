@@ -54,8 +54,6 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Checking_Dependences);
 
 	kmp_uint64 depPattern = 0;
-	printf("Numero de deps = %d\n", ndeps);
-
 
 	/// Iterate over each dependence
 	for (kmp_uint32 depIdx=0; depIdx<ndeps; depIdx++) {
