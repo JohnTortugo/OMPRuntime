@@ -71,7 +71,7 @@
 
 	/// Labels for itt-events representing enqueue and dequeue from the ready tasks queue
 	extern __itt_string_handle* volatile __itt_ReadyQueue_Dequeue;
-	extern __itt_string_handle* volatile __itt_ReadyQueue_Enqueue;
+	extern __itt_string_handle* volatile __itt_RunQueue_Enqueue;
 
 	/// Labels for itt-events representing enqueue and dequeue from the new tasks queue
 	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Dequeue;

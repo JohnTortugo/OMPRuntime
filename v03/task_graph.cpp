@@ -224,7 +224,7 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 		/// If the task now has 0 dependences.
 		if (prev != 0 && taskGraph[slotId] == 0) {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 			RunQueues[ nextWorkerThread() ].enq( tasks[slotId] );
 #else
@@ -264,7 +264,7 @@ void addToTaskGraph(kmp_task* newTask) {
 
 	/// if the task has depPattern == 0 then it may already be dispatched.
 	if (depPattern == 0) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Enqueue);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 		RunQueues[ nextWorkerThread() ].enq( newTask );
 #else

@@ -13,7 +13,6 @@
 	#define RUN_QUEUES_CF			     5
 	#define RUN_QUEUE_CF			    50
 
-
 	#define RETIREMENT_QUEUE_SIZE		64
 
 	/// The bool var is used to set a flag indicating that worker threads must "barrier" synchronize
@@ -36,7 +35,7 @@
 
 	/// This is a matrix. Each line represents a submission/steal queue of one worker thread
 	extern SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE, RUN_QUEUES_CF>* RunQueues;
-	extern SimpleQueue<kmp_task*, RUN_QUEUE_SIZE, RUN_QUEUE_CF> RunQueuea;
+	extern SimpleQueue<kmp_task*, RUN_QUEUE_SIZE, RUN_QUEUE_CF> RunQueue;
 
 	/// Each core also has a queue for work stealing. The idea is that the victim will
 	/// add work on the StealQueue of the steal thread. The StealStatus is used to keep

@@ -56,7 +56,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 	kmp_uint64 depPattern = 0;
 	corPattern = 1;
 
-	printf("Numero de deps = %d\n", ndeps);
+//	printf("Numero de deps = %d\n", ndeps);
 
 	/// Iterate over each dependence
 	for (kmp_uint32 depIdx=0; depIdx<ndeps; depIdx++) {
@@ -68,7 +68,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 		/// <ID_OF_LAST_WRITER, IDS_OF_CURRENT_READERS>
 		std::pair<kmp_uint32, kmp_uint64> hashValue;
 
-		printf("Checking base addr %x  --> %d\n", baseAddr, hashEntry != dependenceTable.end());
+//		printf("Checking base addr %x  --> %d\n", baseAddr, hashEntry != dependenceTable.end());
 
 		/// Is someone already accessing this address?
 		if (hashEntry != dependenceTable.end()) {
@@ -159,7 +159,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 		dependenceTable[baseAddr] = hashValue;
 	}
 
-	printf("The dependence pattern is 0x%x\n", depPattern);
+//	printf("The dependence pattern is 0x%x\n", depPattern);
 
 	__itt_task_end(__itt_mtsp_domain);
 	return depPattern;

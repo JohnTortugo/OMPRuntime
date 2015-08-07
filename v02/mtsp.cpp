@@ -33,7 +33,7 @@ char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 //===-------- VTune/libittnotify related stuff ----------===//
 __itt_domain*			volatile __itt_mtsp_domain	= nullptr;
 __itt_string_handle* 	volatile __itt_ReadyQueue_Dequeue	= nullptr;
-__itt_string_handle* 	volatile __itt_ReadyQueue_Enqueue	= nullptr;
+__itt_string_handle* 	volatile __itt_RunQueue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Dequeue	= nullptr;
 __itt_string_handle* 	volatile __itt_Submission_Queue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Copy		= nullptr;
@@ -82,7 +82,7 @@ void __mtsp_initialize() {
 
     __itt_mtsp_domain = __itt_domain_create("MTSP.SchedulerDomain");
 	__itt_ReadyQueue_Dequeue = __itt_string_handle_create("ReadyQueue_Dequeue");
-	__itt_ReadyQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
+	__itt_RunQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
 	__itt_New_Tasks_Queue_Dequeue = __itt_string_handle_create("New_Tasks_Queue_Dequeue");
 	__itt_Submission_Queue_Enqueue = __itt_string_handle_create("New_Tasks_Queue_Enqueue");
 	__itt_New_Tasks_Queue_Full = __itt_string_handle_create("New_Tasks_Queue_Full");

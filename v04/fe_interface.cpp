@@ -48,11 +48,15 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     for(i=0; i < argc; i++) { *argv++ = va_arg(ap, void *); }
 	va_end(ap);
 
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Fork_Call);
+
 	/// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
     (microtask)(&tid, &tid, argvcp[0]);
 
     //printf("Assuming the compiler or the programmer added a #pragma taskwait at the end of parallel for.\n");
     __kmpc_omp_taskwait(nullptr, 0);
+
+    __itt_task_end(__itt_mtsp_domain);
 }
 
 kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int32* memorySlotId) {
@@ -97,11 +101,12 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 }
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
-	/// TODO: needs to assert \param ndeps_noalias always zero.
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_With_Deps);
 
 	/// Ask to add this task to the task graph
 	__mtsp_addNewTask(new_task, ndeps, dep_list);
 
+	__itt_task_end(__itt_mtsp_domain);
 	return 0;
 }
 
@@ -113,7 +118,7 @@ void steal_from_single_run_queue(bool just_a_bit) {
 
 	while (true) {
 		if (just_a_bit) {
-			if (RunQueuea.cur_load() < RunQueuea.cont_load()) {
+			if (RunQueue.cur_load() < RunQueue.cont_load()) {
 				__itt_task_end(__itt_mtsp_domain);
 				break;
 			}
@@ -125,13 +130,13 @@ void steal_from_single_run_queue(bool just_a_bit) {
 			}
 		}
 
-		if (RunQueuea.try_deq(&taskToExecute)) {
+		if (RunQueue.try_deq(&taskToExecute)) {
 #ifdef MTSP_WORK_DISTRIBUTION_FT
 			finishedIDS[0]++;
 			finishedIDS[finishedIDS[0]] = myId;
 #endif
 
-//			/// Start execution of the task
+			/// Start execution of the task
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
 			(*(taskToExecute->routine))(0, taskToExecute);
 			__itt_task_end(__itt_mtsp_domain);
@@ -218,37 +223,9 @@ void steal_from_multiple_run_queue(bool just_a_bit) {
 	__itt_task_end(__itt_mtsp_domain);
 }
 
-void dumpVector(char* fileName, std::vector<int> vals) {
-	FILE* fp = fopen(fileName, "w+");
-
-	if (!fp) {
-		fprintf(stderr, "It was impossible to write the stats file [%s].\n", fileName);
-		return ;
-	}
-
-	for (auto val : taskGraphSize)
-		fprintf(fp, "%d, ", val);
-
-	fclose(fp);
-}
-
-void dumpStats() {
-	static int counter=0;
-	char fileNameA[100], fileNameB[100];
-
-	sprintf(fileNameA, "taskGraphSize_%04d.csv", counter);
-	sprintf(fileNameB, "runQueueSize_%04d.csv", counter);
-
-	dumpVector(fileNameA, taskGraphSize);
-	dumpVector(fileNameB, runQueueSize);
-
-	taskGraphSize.clear();
-	runQueueSize.clear();
-
-	counter++;
-}
-
 kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
+
 	/// Flush the current state of the submission queues..
 	submissionQueue.fsh();
 
@@ -259,8 +236,6 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 		steal_from_single_run_queue(false);
 	#endif
 #endif
-
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
 
 	/// TODO: have to check if we aren't already at a barrier. This may happen
 	/// if we let several threads to call taskwait();
@@ -281,12 +256,11 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	/// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
 
-	__itt_task_end(__itt_mtsp_domain);
-
 #ifdef MTSP_DUMP_STATS
 	printf("%llu tasks were executed by the control thread.\n\n", tasksExecutedByCT);
 #endif
 
+	__itt_task_end(__itt_mtsp_domain);
 	return 0;
 }
 
@@ -301,7 +275,7 @@ kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
 }
 
 void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
-	//printf("__kmpc_end_single %s:%d\n", __FILE__, __LINE__);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
 
 	/// Flush the current state of the submission queues..
 	submissionQueue.fsh();
@@ -310,11 +284,9 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	#ifdef MTSP_MULTIPLE_RUN_QUEUES
 		steal_from_multiple_run_queue(false);
 	#else
-//		steal_from_single_run_queue(false);
+		steal_from_single_run_queue(false);
 	#endif
 #endif
-
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
 
 	/// TODO: have to check if we aren't already at a barrier. This may happen
 	/// if we let several threads to call taskwait();
@@ -336,7 +308,6 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	while (__mtsp_threadWaitCounter != 0);
 
 	__itt_task_end(__itt_mtsp_domain);
-
 	RELEASE(&__mtsp_Single);
 	return ;
 }

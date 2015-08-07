@@ -29,8 +29,9 @@ char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
 //===-------- VTune/libittnotify related stuff ----------===//
 __itt_domain*			volatile __itt_mtsp_domain	= nullptr;
+__itt_string_handle* 	volatile __itt_Fork_Call	= nullptr;
 __itt_string_handle* 	volatile __itt_ReadyQueue_Dequeue	= nullptr;
-__itt_string_handle* 	volatile __itt_ReadyQueue_Enqueue	= nullptr;
+__itt_string_handle* 	volatile __itt_RunQueue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Dequeue	= nullptr;
 __itt_string_handle* 	volatile __itt_Submission_Queue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Copy		= nullptr;
@@ -39,6 +40,7 @@ __itt_string_handle* 	volatile __itt_Finished_Tasks_Queue_Dequeue	= nullptr;
 __itt_string_handle* 	volatile __itt_Finished_Tasks_Queue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_Control_Thread_Barrier_Wait	= nullptr;
 __itt_string_handle* 	volatile __itt_Worker_Thread_Barrier	= nullptr;
+__itt_string_handle* 	volatile __itt_WT_Serving_Steal	= nullptr;
 __itt_string_handle* 	volatile __itt_Task_In_Execution	= nullptr;
 __itt_string_handle* 	volatile __itt_Task_Stealing	= nullptr;
 __itt_string_handle* 	volatile __itt_Add_Task_To_TaskGraph	= nullptr;
@@ -76,8 +78,9 @@ int stick_this_thread_to_core(int core_id) {
 
 void __mtsp_initialize() {
     __itt_mtsp_domain = __itt_domain_create("MTSP.SchedulerDomain");
+    __itt_Fork_Call = __itt_string_handle_create("Fork_Call");
 	__itt_ReadyQueue_Dequeue = __itt_string_handle_create("ReadyQueue_Dequeue");
-	__itt_ReadyQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
+	__itt_RunQueue_Enqueue = __itt_string_handle_create("RunQueue_Enqueue");
 	__itt_New_Tasks_Queue_Dequeue = __itt_string_handle_create("New_Tasks_Queue_Dequeue");
 	__itt_Submission_Queue_Enqueue = __itt_string_handle_create("New_Tasks_Queue_Enqueue");
 	__itt_New_Tasks_Queue_Full = __itt_string_handle_create("New_Tasks_Queue_Full");
@@ -86,6 +89,7 @@ void __mtsp_initialize() {
 	__itt_Finished_Tasks_Queue_Enqueue = __itt_string_handle_create("Finished_Tasks_Queue_Enqueue");
 	__itt_Control_Thread_Barrier_Wait = __itt_string_handle_create("Control_Thread_Barrier_Wait");
 	__itt_Worker_Thread_Barrier = __itt_string_handle_create("Worker_Thread_Barrier");
+	__itt_WT_Serving_Steal = __itt_string_handle_create("WT_Serving_Steal");
 	__itt_Worker_Thread_Wait_For_Work = __itt_string_handle_create("Worker_Thread_Wait_For_Work");
 	__itt_Task_In_Execution = __itt_string_handle_create("Task_In_Execution");
 	__itt_Task_Stealing = __itt_string_handle_create("Task_Stealing");
@@ -115,6 +119,8 @@ void __mtsp_initialize() {
  * WARNING: We consider just one producer!!! This method not is thread safe.
  */
 void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Enqueue);
+
 #ifdef MTSP_WORKSTEALING_CT
 	/// The CT is trying to submit work but the queue is full. The CT will then
 	/// spend some time executing tasks
@@ -130,7 +136,6 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 #endif
 	}
 #endif
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Enqueue);
 
 	/// Increment the number of tasks in the system currently
 	ATOMIC_ADD(&__mtsp_inFlightTasks, (kmp_int32)1);

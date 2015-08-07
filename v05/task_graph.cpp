@@ -20,6 +20,8 @@ kmp_uint8 						idNextWorkerThread;
 std::vector<int>				taskGraphSize;
 std::vector<int>				runQueueSize;
 
+const char colors[][20] = {	"blue", "maroon1", "yellow", "orange", "dodgerblue4", "dimgrey", "chartreuse4", "darkturquoise", "darkorange4", "gray19",
+							"khaki4", "indigo", "limegreen", "plum4", "wheat4", "tomato4", "grey63", "grey100", "gray0", "antiquewhite4"};
 
 void __mtsp_initializeTaskGraph() {
 	for (int i=0; i<MAX_TASKS; i++) {
@@ -38,7 +40,12 @@ void __mtsp_initializeTaskGraph() {
 }
 
 const char* getNodeColor(int nodeId) {
-	return std::string("0xFF").c_str();
+	int cor = __mtsp_NodeColor[nodeId] % 64;
+
+	if (cor > 19)
+		return "red";
+	else
+		return colors[cor];
 }
 
 void dumpDependenceGraphToDot(kmp_uint16 newTaskId, kmp_uint64 newDepPattern) {
@@ -107,7 +114,7 @@ void dumpDependenceGraphToDot(kmp_uint16 newTaskId, kmp_uint64 newDepPattern) {
 		kmp_uint16 src = nexts.front(); nexts.pop();
 		kmp_uint64 mask = ~((kmp_uint64)1 << src);
 
-		fprintf(fp, "Node_%03d [shape=circle, fillcolor=\"%s\"];\n", src, getNodeColor(src));
+		fprintf(fp, "Node_%03d [shape=circle, style=filled, fillcolor=\"%s\"];\n", src, getNodeColor(src));
 
 		/// See how depends on the task that finished
 		for (int slotId=0; slotId<MAX_TASKS; slotId++) {
@@ -127,9 +134,6 @@ void dumpDependenceGraphToDot(kmp_uint16 newTaskId, kmp_uint64 newDepPattern) {
 	fprintf(fp, "}\n");
 	fclose(fp);
 	time++;
-
-	dumpDependenceMatrix();
-	getchar();
 }
 
 void dumpDependenceMatrix() {
@@ -234,9 +238,22 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 		/// If the task now has 0 dependences.
 		if (prev != 0 && taskGraph[slotId] == 0) {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
-			RunQueues[ nextWorkerThread() ].enq( tasks[slotId] );
+	#ifndef MTSP_CRITICAL_PATH_PREDICTION
+				RunQueues[ nextWorkerThread() ].enq( tasks[slotId] );
+	#else
+		int load = __mtsp_ColorVector[__mtsp_NodeColor[slotId]];
+
+		if (load >= 16)
+			PrioritizedRunQueues[0].enq( tasks[slotId] );
+		else if (load >= 12)
+			PrioritizedRunQueues[1].enq( tasks[slotId] );
+		else if (load >= 8)
+			PrioritizedRunQueues[2].enq( tasks[slotId] );
+		else
+			PrioritizedRunQueues[3].enq( tasks[slotId] );
+	#endif
 #else
 			RunQueue.enq( tasks[slotId] );
 #endif
@@ -284,7 +301,7 @@ void __mtsp_updateColors(kmp_uint16 newTaskId, kmp_uint64 corPattern) {
 		corPattern = corPattern >> 1;
 	}
 
-	printf("The colorset of %02d is %02d, its color is %02d\n", newTaskId, prev, endCorIdx);
+//	printf("The colorset of %02d is %02d, its color is %02d\n", newTaskId, prev, endCorIdx);
 
 	__mtsp_NodeColor[newTaskId] = endCorIdx;
 }
@@ -324,9 +341,22 @@ void addToTaskGraph(kmp_task* newTask) {
 
 	/// if the task has depPattern == 0 then it may already be dispatched.
 	if (depPattern == 0) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Enqueue);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
+	#ifndef MTSP_CRITICAL_PATH_PREDICTION
 		RunQueues[ nextWorkerThread() ].enq( newTask );
+	#else
+		int load = __mtsp_ColorVector[__mtsp_NodeColor[newTaskId]];
+
+		if (load >= 16)
+			PrioritizedRunQueues[0].enq( newTask );
+		else if (load >= 12)
+			PrioritizedRunQueues[1].enq( newTask );
+		else if (load >= 8)
+			PrioritizedRunQueues[2].enq( newTask );
+		else
+			PrioritizedRunQueues[3].enq( newTask );
+	#endif
 #else
 		RunQueue.enq( newTask );
 #endif

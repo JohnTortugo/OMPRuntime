@@ -17,7 +17,7 @@
 	//===----------------------------------------------------------------------===//
 
 	/// Activate (when undefined) or deactivate (when defined) ITTNotify Events
-	/// #define	INTEL_NO_ITTNOFIFY_API	1
+	#define	INTEL_NO_ITTNOFIFY_API	1
 
 	/// Work distribution in a round robin way
 	#define MTSP_WORK_DISTRIBUTION_RR		1
@@ -35,15 +35,15 @@
 	///#define MTSP_MULTIPLE_RETIRE_QUEUES		1
 
 	/// Enable this define to use one submission queue per worker thread
-	///#define MTSP_MULTIPLE_RUN_QUEUES 		1
+	#define MTSP_MULTIPLE_RUN_QUEUES 		1
 
 	/// Uncomment if you want the worker threads to steal work
-	#define MTSP_WORKSTEALING_WT			1
+	///#define MTSP_WORKSTEALING_WT			1
 
 	/// Uncomment if you want the CT to steal work
 	#define MTSP_WORKSTEALING_CT			1
 
-	///#define MTSP_DUMP_STATS					1
+	#define MTSP_DUMP_STATS					1
 
 
 
@@ -80,10 +80,11 @@
 	/// ITTNotify domain of events/tasks/frames
 	extern __itt_domain* 		volatile __itt_mtsp_domain;
 	extern __itt_domain* 		volatile __itt_mtsp_domain2;
+	extern __itt_string_handle* volatile __itt_Fork_Call;
 
 	/// Labels for itt-events representing enqueue and dequeue from the ready tasks queue
 	extern __itt_string_handle* volatile __itt_ReadyQueue_Dequeue;
-	extern __itt_string_handle* volatile __itt_ReadyQueue_Enqueue;
+	extern __itt_string_handle* volatile __itt_RunQueue_Enqueue;
 
 	/// Labels for itt-events representing enqueue and dequeue from the new tasks queue
 	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Dequeue;
@@ -100,6 +101,7 @@
 
 	/// Labels for itt-events representing periods where an worker thread was waiting in a taskwait barrier
 	extern __itt_string_handle* volatile __itt_Worker_Thread_Barrier;
+	extern __itt_string_handle* volatile __itt_WT_Serving_Steal;
 
 	/// Label for itt-events representing periods where an worker thread was waiting for tasks to execute
 	extern __itt_string_handle* volatile __itt_Worker_Thread_Wait_For_Work;

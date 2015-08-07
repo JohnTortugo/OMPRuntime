@@ -224,15 +224,15 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 		/// If the task now has 0 dependences.
 		if (prev != 0 && taskGraph[slotId] == 0) {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 			RunQueues[ nextWorkerThread() ].enq( tasks[slotId] );
 #else
-			RunQueuea.enq( tasks[slotId] );
+			RunQueue.enq( tasks[slotId] );
 #endif
 
 #ifdef MTSP_DUMP_STATS
-			runQueueSize.push_back(RunQueuea.cur_load());
+			runQueueSize.push_back(RunQueue.cur_load());
 #endif
 
 			__itt_task_end(__itt_mtsp_domain);
@@ -273,15 +273,15 @@ void addToTaskGraph(kmp_task* newTask) {
 
 	/// if the task has depPattern == 0 then it may already be dispatched.
 	if (depPattern == 0) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Enqueue);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 		RunQueues[ nextWorkerThread() ].enq( newTask );
 #else
-		RunQueuea.enq( newTask );
+		RunQueue.enq( newTask );
 #endif
 
 #ifdef MTSP_DUMP_STATS
-		runQueueSize.push_back(RunQueuea.cur_load());
+		runQueueSize.push_back(RunQueue.cur_load());
 #endif
 		__itt_task_end(__itt_mtsp_domain);
 	}
@@ -289,7 +289,6 @@ void addToTaskGraph(kmp_task* newTask) {
 #ifdef MTSP_DUMP_STATS
 	taskGraphSize.push_back(MAX_TASKS - freeSlots[0]);
 #endif
-
 
 	__itt_task_end(__itt_mtsp_domain);
 }

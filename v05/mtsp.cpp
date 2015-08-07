@@ -13,6 +13,7 @@
 
 bool 				volatile 	__mtsp_initialized 		= false;
 pthread_t 						__mtsp_RuntimeThread	= 0;
+bool 				volatile 	__mtsp_Single 			= false;
 bool							__mtsp_ColorVectorIdx	= true;
 
 kmp_uint16 						__mtsp_ColorVector[COLOR_VECTOR_SIZE];
@@ -33,7 +34,7 @@ char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 //===-------- VTune/libittnotify related stuff ----------===//
 __itt_domain*			volatile __itt_mtsp_domain	= nullptr;
 __itt_string_handle* 	volatile __itt_ReadyQueue_Dequeue	= nullptr;
-__itt_string_handle* 	volatile __itt_ReadyQueue_Enqueue	= nullptr;
+__itt_string_handle* 	volatile __itt_RunQueue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Dequeue	= nullptr;
 __itt_string_handle* 	volatile __itt_Submission_Queue_Enqueue	= nullptr;
 __itt_string_handle* 	volatile __itt_New_Tasks_Queue_Copy		= nullptr;
@@ -55,6 +56,7 @@ __itt_string_handle* 	volatile __itt_Worker_Thread_Wait_For_Work	= nullptr;
 
 extern void steal_from_single_run_queue(bool just_a_bit);
 extern void steal_from_multiple_run_queue(bool just_a_bit);
+extern void steal_from_prioritized_run_queues(bool just_a_bit);
 
 int stick_this_thread_to_core(int core_id) {
 //	int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
@@ -80,7 +82,7 @@ int stick_this_thread_to_core(int core_id) {
 void __mtsp_initialize() {
     __itt_mtsp_domain = __itt_domain_create("MTSP.SchedulerDomain");
 	__itt_ReadyQueue_Dequeue = __itt_string_handle_create("ReadyQueue_Dequeue");
-	__itt_ReadyQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
+	__itt_RunQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
 	__itt_New_Tasks_Queue_Dequeue = __itt_string_handle_create("New_Tasks_Queue_Dequeue");
 	__itt_Submission_Queue_Enqueue = __itt_string_handle_create("New_Tasks_Queue_Enqueue");
 	__itt_New_Tasks_Queue_Full = __itt_string_handle_create("New_Tasks_Queue_Full");
@@ -127,7 +129,11 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 		/// - In the centralized run queue we are going to steal until the
 		/// run queue become empty.
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
-		steal_from_multiple_run_queue(true);
+	#ifndef MTSP_CRITICAL_PATH_PREDICTION
+		steal_from_multiple_run_queue(false);
+	#else
+		steal_from_prioritized_run_queues(false);
+	#endif
 #else
 		steal_from_single_run_queue(true);
 #endif
@@ -191,8 +197,8 @@ void __mtsp_compute_bottom_frontier() {
 		}
 	}
 
-	dumpDependenceGraphToDot(0, 0);
-	printf("Bottom frontier recomputed. The new frontier has %02d elements.\n", frontierSize);
+//	dumpDependenceGraphToDot(0, 0);
+//	printf("Bottom frontier recomputed. The new frontier has %02d elements.\n", frontierSize);
 }
 
 void* __mtsp_RuntimeThreadCode(void* params) {
@@ -218,9 +224,11 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		if (freeSlots[0] > 0 && submissionQueue.can_deq()) {
 			addToTaskGraph(submissionQueue.deq());
 
-			/// If wee have already added 64 tasks then we recompute the
+			/// If we have already added 64 tasks then we recompute the
 			/// bottom frontier.
-			if ((additions & 0x3F) == 0) __mtsp_compute_bottom_frontier();
+			if ((additions & 0x3F) == 0) {
+				__mtsp_compute_bottom_frontier();
+			}
 
 			additions++;
 		}
@@ -235,5 +243,3 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 
 	return 0;
 }
-
-

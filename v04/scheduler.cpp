@@ -14,7 +14,7 @@ std::pair<bool, kmp_int16> volatile * StealRequest;
 bool volatile * WaitingStealAnswer;
 
 SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE, RUN_QUEUES_CF>* RunQueues;
-SimpleQueue<kmp_task*, RUN_QUEUE_SIZE, RUN_QUEUE_CF> RunQueuea;
+SimpleQueue<kmp_task*, RUN_QUEUE_SIZE, RUN_QUEUE_CF> RunQueue;
 
 SPSCQueue<kmp_task*, RUN_QUEUES_SIZE, RUN_QUEUES_BATCH_SIZE>* RetirementQueues;
 SimpleQueue<kmp_task*, RETIREMENT_QUEUE_SIZE> RetirementQueue;
@@ -73,7 +73,7 @@ void* workerThreadCode(void* params) {
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 		if (RunQueues[myId].try_deq(&taskToExecute) || StealQueues[myId].try_deq(&taskToExecute)) {
 #else
-		if (RunQueuea.try_deq(&taskToExecute)) {
+		if (RunQueue.try_deq(&taskToExecute)) {
 #endif
 
 #ifdef MTSP_WORK_DISTRIBUTION_FT
@@ -95,6 +95,7 @@ void* workerThreadCode(void* params) {
 #else
 			RetirementQueue.enq(taskToExecute);
 #endif
+			__itt_task_end(__itt_mtsp_domain);
 		}
 		else {
 #if defined(MTSP_WORKSTEALING_WT) && defined(MTSP_MULTIPLE_RUN_QUEUES)
@@ -110,7 +111,6 @@ void* workerThreadCode(void* params) {
 			}
 #endif
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
-
 			/// has a barrier been activated?
 			if (__mtsp_threadWait == true) {
 				if (__mtsp_inFlightTasks == 0) {
@@ -131,11 +131,11 @@ void* workerThreadCode(void* params) {
 					__itt_task_end(__itt_mtsp_domain);
 				}
 			}
-
 			__itt_task_end(__itt_mtsp_domain);
 		}
 
 #if defined(MTSP_MULTIPLE_RUN_QUEUES) && (defined(MTSP_WORKSTEALING_CT) || defined(MTSP_WORKSTEALING_WT))
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Serving_Steal);
 		/// Check if there is an steal request pending...
 		if (StealRequest[myId].second >= 0) {
 			serviceSteal(myId, StealRequest[myId].second);
@@ -146,6 +146,7 @@ void* workerThreadCode(void* params) {
 			/// Reset pending steal to false
 			CAS(&StealRequest[myId].second, StealRequest[myId].second, -1);
 		}
+		__itt_task_end(__itt_mtsp_domain);
 #endif
 
 #ifdef MTSP_MULTIPLE_RETIRE_QUEUES
