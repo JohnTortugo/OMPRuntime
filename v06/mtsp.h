@@ -3,9 +3,6 @@
 
 	#include "kmp.h"
 	#include "ittnotify.h"
-	#include "task_graph.h"
-	#include "ThreadedQueue.h"
-	#include "fe_interface.h"
 
 	#include <pthread.h>
 
@@ -16,8 +13,11 @@
 	//
 	//===----------------------------------------------------------------------===//
 
+	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
+	#define DEBUG_MODE						1
+
 	/// Activate (when undefined) or deactivate (when defined) ITTNotify Events
-	#define	INTEL_NO_ITTNOFIFY_API	1
+	#define	INTEL_NO_ITTNOFIFY_API			1
 
 	/// Uncomment if you want the CT to steal work
 ///	#define MTSP_WORKSTEALING_CT			1

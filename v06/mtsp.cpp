@@ -10,6 +10,7 @@
 #include "scheduler.h"
 #include "task_graph.h"
 #include "ThreadedQueue.h"
+#include "fe_interface.h"
 
 bool 				volatile 	__mtsp_initialized 	= false;
 pthread_t 						__mtsp_RuntimeThread;

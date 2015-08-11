@@ -1,7 +1,8 @@
 #include "kmp.h"
+#include "ThreadedQueue.h"
 
 /// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-#define SUBMISSION_QUEUE_SIZE			 1024
+#define SUBMISSION_QUEUE_SIZE			 8192
 #define SUBMISSION_QUEUE_BATCH_SIZE			4
 #define SUBMISSION_QUEUE_CF	  			   75
 

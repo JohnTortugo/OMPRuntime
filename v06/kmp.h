@@ -71,8 +71,8 @@
 
 	/// This structure is used by MTSP to store metadata information related to a task
 	typedef struct _mtsp_task_metadata {
-		kmp_int32 metadata_slot_id;
-		kmp_int32 taskgraph_slot_id;
+		kmp_int16 metadata_slot_id;
+		kmp_int16 taskgraph_slot_id;
 		kmp_int32 ndeps;
 		kmp_depend_info* dep_list;
 	} mtsp_task_metadata;

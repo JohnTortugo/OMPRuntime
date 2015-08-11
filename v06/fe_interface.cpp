@@ -26,8 +26,6 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     /// Check whether the runtime library is initialized
     ACQUIRE(&__mtsp_lock_initialized);
     if (__mtsp_initialized == false) {
-    	printf("Initializing MSP...\n");
-
     	/// Init random number generator. We use this on the work stealing part.
     	srandom( time(NULL) );
 
@@ -38,8 +36,6 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     	__itt_thread_set_name("ControlThread");
 
     	__mtsp_initialize();
-
-    	printf("MTSP initialization complete.\n");
     }
 	RELEASE(&__mtsp_lock_initialized);
 
@@ -103,8 +99,6 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_With_Deps);
 
-	printf("Task with deps..\n");
-
 	/// Ask to add this task to the task graph
 	__mtsp_addNewTask(new_task, ndeps, dep_list);
 
@@ -133,11 +127,6 @@ void steal_from_single_run_queue(bool just_a_bit) {
 		}
 
 		if (RunQueue.try_deq(&taskToExecute)) {
-#ifdef MTSP_WORK_DISTRIBUTION_FT
-			finishedIDS[0]++;
-			finishedIDS[finishedIDS[0]] = myId;
-#endif
-
 			/// Start execution of the task
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
 			(*(taskToExecute->routine))(0, taskToExecute);
@@ -147,80 +136,10 @@ void steal_from_single_run_queue(bool just_a_bit) {
 
 			/// Inform that this task has finished execution
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
-#ifdef MTSP_MULTIPLE_RETIRE_QUEUES
-			RetirementQueues[myId].enq(taskToExecute);
-#else
 			RetirementQueue.enq(taskToExecute);
-#endif
 			__itt_task_end(__itt_mtsp_domain);
 		}
 	}
-
-#ifdef MTSP_MULTIPLE_RETIRE_QUEUES
-	RetirementQueues[myId].fsh();
-#endif
-
-	__itt_task_end(__itt_mtsp_domain);
-}
-
-void executeStealed() {
-	kmp_uint16 myId = __mtsp_numWorkerThreads;
-	kmp_task* taskToExecute = nullptr;
-
-	while (StealQueues[myId].try_deq(&taskToExecute)) {
-#ifdef MTSP_WORK_DISTRIBUTION_FT
-		finishedIDS[0]++;
-		finishedIDS[finishedIDS[0]] = myId;
-#endif
-
-		/// Start execution of the task
-		 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
-		(*(taskToExecute->routine))(0, taskToExecute);
-		__itt_task_end(__itt_mtsp_domain);
-
-		tasksExecutedByCT++;
-
-		/// Inform that this task has finished execution
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
-#ifdef MTSP_MULTIPLE_RETIRE_QUEUES
-		RetirementQueues[myId].enq(taskToExecute);
-#else
-		RetirementQueue.enq(taskToExecute);
-#endif
-		__itt_task_end(__itt_mtsp_domain);
-	}
-}
-
-void steal_from_multiple_run_queue(bool just_a_bit) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
-
-	kmp_uint16 myId = __mtsp_numWorkerThreads;
-
-	if (just_a_bit) {
-		kmp_uint16 victim = random() % __mtsp_numWorkerThreads;
-		//printf("Trying steal. Victim [%d], Stealer [%d]\n", victim, myId);
-		CAS(&StealRequest[victim].second, -1, myId);
-
-		/// Wait until the status of the requisition change to see if we got work
-		while (StealRequest[victim].second == myId);
-
-		executeStealed();
-	}
-	else {
-		while (submissionQueue.cur_load() > 0) {
-			kmp_uint16 victim = random() % __mtsp_numWorkerThreads;
-			CAS(&StealRequest[victim].second, -1, myId);
-
-			/// Wait until the status of the requisition change to see if we got work
-			while (StealRequest[victim].second == myId);
-
-			executeStealed();
-		}
-	}
-
-#ifdef MTSP_MULTIPLE_RETIRE_QUEUES
-	RetirementQueues[myId].fsh();
-#endif
 
 	__itt_task_end(__itt_mtsp_domain);
 }
@@ -232,15 +151,13 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	submissionQueue.fsh();
 
 #ifdef MTSP_WORKSTEALING_CT
-	#ifdef MTSP_MULTIPLE_RUN_QUEUES
-		steal_from_multiple_run_queue(false);
-	#else
-		steal_from_single_run_queue(false);
-	#endif
+	steal_from_single_run_queue(false);
 #endif
 
-	/// TODO: have to check if we aren't already at a barrier. This may happen
-	/// if we let several threads to call taskwait();
+	/// delete: this is just to debug (temporarily)
+	while (submissionQueue.cur_load() > 0);
+	__mtsp_dumpTaskGraphToDot();
+	__mtsp_activate_workers = true;
 
 	/// Reset the number of threads that have currently reached the barrier
 	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
@@ -257,6 +174,9 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	/// Before we continue we need to make sure that all threads have "seen" the previous
 	/// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
+
+	/// delete: this is just to debug (temporarily)
+	__mtsp_activate_workers = false;
 
 #ifdef MTSP_DUMP_STATS
 	printf("%llu tasks were executed by the control thread.\n\n", tasksExecutedByCT);
@@ -283,15 +203,13 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	submissionQueue.fsh();
 
 #ifdef MTSP_WORKSTEALING_CT
-	#ifdef MTSP_MULTIPLE_RUN_QUEUES
-		steal_from_multiple_run_queue(false);
-	#else
-		steal_from_single_run_queue(false);
-	#endif
+	steal_from_single_run_queue(false);
 #endif
 
-	/// TODO: have to check if we aren't already at a barrier. This may happen
-	/// if we let several threads to call taskwait();
+	/// delete: this is just to debug (temporarily)
+	while (submissionQueue.cur_load() > 0);
+	__mtsp_dumpTaskGraphToDot();
+	__mtsp_activate_workers = true;
 
 	/// Reset the number of threads that have currently reached the barrier
 	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
@@ -308,6 +226,13 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	/// Before we continue we need to make sure that all threads have "seen" the previous
 	/// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
+
+	/// delete: this is just to debug (temporarily)
+	__mtsp_activate_workers = false;
+
+#ifdef MTSP_DUMP_STATS
+	printf("%llu tasks were executed by the control thread.\n\n", tasksExecutedByCT);
+#endif
 
 	__itt_task_end(__itt_mtsp_domain);
 	RELEASE(&__mtsp_Single);

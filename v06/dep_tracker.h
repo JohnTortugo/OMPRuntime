@@ -8,15 +8,16 @@
 
 
 	/// Maps from memory address to a pair<IdOfLastTaskAccessingIt, vector of ID of readers>
-	extern std::map<kmp_intptr, std::pair<kmp_uint32, std::vector<kmp_uint32>>> dependenceTable;
-
-
-	//===-------- Locks used to control access to the variables above ----------===//
-	extern unsigned char lock_dependenceTable;
+	extern std::map<kmp_intptr, std::pair<kmp_int32, std::vector<kmp_uint32>>> dependenceTable;
 
 
 
-	void __mtsp_initializeDepChecker();
+	//===----------------------------------------------------------------------===//
+	//
+	// Start of function's prototype used in this implementation of dep. tracker.
+	//
+	//===----------------------------------------------------------------------===//
+
 
 	void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depend_info* depList);
 

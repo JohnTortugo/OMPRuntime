@@ -1,7 +1,9 @@
 #ifndef MCRINGBUFFER_H_
 #define MCRINGBUFFER_H_
 
+#include "mtsp.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 /// for padding purposes
 #define L1D_LINE_SIZE 64
@@ -259,6 +261,12 @@ public:
 
 	void enq(T elem) {
 		GET_LOCK(&lock);
+#ifdef DEBUG_MODE
+		if (length >= QUEUE_SIZE) {
+			printf("********* CRITICAL: Trying to enqueue on full queue. [%s, %d].\n", __FILE__, __LINE__);
+			exit(-1);
+		}
+#endif
 		data[length] = elem;
 		length++;
 		RLS_LOCK(&lock);
@@ -274,6 +282,12 @@ public:
 	T deq() {
 		GET_LOCK(&lock);
 		length--;
+#ifdef DEBUG_MODE
+		if (length < 0) {
+			printf("********* CRITICAL: Trying to dequeue from empty queue. [%s, %d].\n", __FILE__, __LINE__);
+			exit(-1);
+		}
+#endif
 		T elem = data[length];
 		RLS_LOCK(&lock);
 		return elem;

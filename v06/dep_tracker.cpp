@@ -2,17 +2,11 @@
 #include "task_graph.h"
 
 
-std::map<kmp_intptr, std::pair<kmp_uint32, std::vector<kmp_uint32>>> dependenceTable;
-unsigned char lock_dependenceTable;
+std::map<kmp_intptr, std::pair<kmp_int32, std::vector<kmp_uint32>>> dependenceTable;
 
-
-void __mtsp_initializeDepChecker() {
-	lock_dependenceTable = false;
-}
 
 void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dependences);
-	ACQUIRE(&lock_dependenceTable);
 
 	/// Iterate over each dependence and check if the task ID of the last task accessing that address
 	/// is the ID of the finished task. If it is remove that entry, otherwise do nothing.
@@ -29,35 +23,28 @@ void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depe
 			/// If the finished task was a reader we disable that bit in the second field.
 			if (depList[depIdx].flags.out) {
 				if (hashValue.first == idOfFinishedTask) {
-					hashValue.first = 0;
+					hashValue.first = -1;
 				}
 			}
 			else {
-				int i = 0;
-				bool found = false;
-
 				/// The new task become dependent on all previous readers
-				for (i=0; i<hashValue.second.size(); i++) {
-					if (hashValue.second[i] == idOfFinishedTask) {
-						found = true;
+				for (int idxPos=0; idxPos<hashValue.second.size(); idxPos++) {
+					if (hashValue.second[idxPos] == idOfFinishedTask) {
+						hashValue.second.erase(hashValue.second.begin() + idxPos);
 						break;
 					}
 				}
-
-				if (found)
-					hashValue.second.erase(hashValue.second.begin(), hashValue.second.begin() + i);
 			}
 
 			/// If that address does not have more producers/writers we remove it from the hash
 			/// otherwise we just save the updated information
-			if (hashValue.first == 0 && hashValue.second.size() == 0)
+			if (hashValue.first == -1 && hashValue.second.size() == 0)
 				dependenceTable.erase(hashEntry);
 			else
 				dependenceTable[baseAddr] = hashValue;
 		}
 	}
 
-	RELEASE(&lock_dependenceTable);
 	__itt_task_end(__itt_mtsp_domain);
 }
 
@@ -92,13 +79,30 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					depCounter += hashValue.second.size();
 
 					/// The new task become dependent on all previous readers
-					for (auto& idReader : hashValue.second)
-						dependents[idReader][ dependents[idReader][0]++ ] = newTaskId;
+					for (auto& idReader : hashValue.second) {
+						dependents[idReader][0]++;
+						dependents[idReader][ dependents[idReader][0] ] = newTaskId;
+
+#ifdef DEBUG_MODE
+						if (dependents[idReader][0] >= MAX_DEPENDENTS) {
+							printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
+							exit(-1);
+						}
+#endif
+					}
 				}
 				else {
 					kmp_uint32 lastWriterId = hashValue.first;
-					dependents[lastWriterId][ dependents[lastWriterId][0]++ ] = newTaskId;
+					dependents[lastWriterId][0]++;
+					dependents[lastWriterId][ dependents[lastWriterId][0] ] = newTaskId;
 					depCounter++;
+
+#ifdef DEBUG_MODE
+					if (dependents[lastWriterId][0] >= MAX_DEPENDENTS) {
+						printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
+						exit(-1);
+					}
+#endif
 				}
 
 				hashValue.first  = newTaskId;
@@ -109,10 +113,17 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 				///		- if there was a previous producer/writer the new task become dependent
 				///		-		if not, the new task does not have dependences
 				///		- is always added to the set of last readers
-				if (hashValue.first != 0) {
+				if (hashValue.first != -1) {
 					kmp_uint32 lastWriterId = hashValue.first;
-					dependents[lastWriterId][ dependents[lastWriterId][0]++ ] = newTaskId;
+					dependents[lastWriterId][0]++;
+					dependents[lastWriterId][ dependents[lastWriterId][0] ] = newTaskId;
 					depCounter++;
+#ifdef DEBUG_MODE
+					if (dependents[lastWriterId][0] >= MAX_DEPENDENTS) {
+						printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
+						exit(-1);
+					}
+#endif
 				}
 
 				hashValue.second.push_back(newTaskId);
@@ -127,7 +138,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 				hashValue.second.clear();
 			}
 			else {/// The new task is just reading from this address
-				hashValue.first  = 0;
+				hashValue.first  = -1;
 				hashValue.second.push_back(newTaskId);
 			}
 		}
