@@ -74,7 +74,7 @@ kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int32* memorySlotId) {
 }
 
 kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task_t, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Alloc);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_Alloc);
 
 	kmp_uint32 shareds_offset  = sizeof(kmp_taskdata) + sizeof_kmp_task_t;
 	kmp_int32 sizeOfMetadata = sizeof(mtsp_task_metadata);
@@ -94,7 +94,7 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 }
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_With_Deps);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_With_Deps);
 
 	/// TODO: needs to assert \param ndeps_noalias always zero.
 
@@ -106,7 +106,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 }
 
 kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
 
 	/// TODO: have to check if we aren't already at a barrier. This may happen
 	/// if we let several threads to call taskwait();

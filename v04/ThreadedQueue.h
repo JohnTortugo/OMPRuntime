@@ -2,6 +2,7 @@
 #define MCRINGBUFFER_H_
 
 #include <stdio.h>
+#include <stdlib.h>
 
 /// for padding purposes
 #define L1D_LINE_SIZE 64
@@ -43,6 +44,12 @@ public:
 		localWrite		= 0;
 		nextRead		= 0;
 		nextWrite		= 0;
+
+		/// The size of the queue must be a power of 2
+		if (QUEUE_SIZE == 0 || (QUEUE_SIZE & (QUEUE_SIZE - 1)) != 0) {
+			printf("CRITICAL: The size of the queue must be a power of 2.\n");
+			exit(-1);
+		}
 	}
 
 	void enq(T elem) {

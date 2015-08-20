@@ -23,12 +23,12 @@ void* workerThreadCode(void* params) {
 	stick_this_thread_to_core(*targetCore);
 
 	while (true) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Wait_For_Work);
 		bool gotLocked = TRY_ACQUIRE(&lock_readySlots);
 		__itt_task_end(__itt_mtsp_domain);
 
 		if (gotLocked) {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_ReadyQueue_Dequeue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Dequeue);
 			if (readySlots[0] > 0) {
 				kmp_uint16 taskId 	= readySlots[ readySlots[0] ];
 				taskToExecute 		= (kmp_task*) tasks[ taskId ];
@@ -42,7 +42,7 @@ void* workerThreadCode(void* params) {
 				 __itt_task_end(__itt_mtsp_domain);
 
 				/// Inform that this task has finished execution
-				 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
+				 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 				ACQUIRE(&lock_finishedSlots);
 				finishedSlots[0]++;
 				finishedSlots[finishedSlots[0]] = taskId;
@@ -53,14 +53,14 @@ void* workerThreadCode(void* params) {
 				RELEASE(&lock_readySlots);
 				 __itt_task_end(__itt_mtsp_domain);
 
-				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
+				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Wait_For_Work);
 
 				/// has a barrier been activated?
 				if (__mtsp_threadWait == true) {
 //					kmp_uint32 inFlight = ATOMIC_ADD(&__mtsp_inFlightTasks, 0);
 
 					if (__mtsp_inFlightTasks == 0) {
-						__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Barrier);
+						__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Barrier);
 
 						ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
 

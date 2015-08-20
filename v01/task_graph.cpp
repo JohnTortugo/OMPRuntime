@@ -37,7 +37,7 @@ void __mtsp_initializeTaskGraph() {
 }
 
 void removeFromTaskGraph(kmp_uint16 idOfFinishedTask) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Del_Task_From_TaskGraph);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
 
 	kmp_uint64 mask = ~((kmp_uint64)1 << idOfFinishedTask);
 
@@ -61,7 +61,7 @@ void removeFromTaskGraph(kmp_uint16 idOfFinishedTask) {
 		if (prev != 0 && taskGraph[slotId] == 0) {
 			newReleases++;
 
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
 			/// Check if there is any request for new thread creation
 			ACQUIRE(&lock_readySlots);
 			readySlots[0]++;
@@ -100,7 +100,7 @@ void dumpDependenceMatrix() {
 }
 
 void addToTaskGraph(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Add_Task_To_TaskGraph);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Add);
 
 	ACQUIRE(&lock_dependenceTable);
 
@@ -122,7 +122,7 @@ void addToTaskGraph(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depLis
 
 	/// if the task has depPattern == 0 then it may already be dispatched.
 	if (depPattern == 0) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
 		ACQUIRE(&lock_readySlots);
 		readySlots[0]++;
 		readySlots[readySlots[0]] = newTaskId;

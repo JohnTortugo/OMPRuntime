@@ -33,25 +33,25 @@ char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
 //===-------- VTune/libittnotify related stuff ----------===//
 __itt_domain*			volatile __itt_mtsp_domain	= nullptr;
-__itt_string_handle* 	volatile __itt_ReadyQueue_Dequeue	= nullptr;
-__itt_string_handle* 	volatile __itt_RunQueue_Enqueue	= nullptr;
-__itt_string_handle* 	volatile __itt_New_Tasks_Queue_Dequeue	= nullptr;
+__itt_string_handle* 	volatile __itt_Run_Queue_Dequeue	= nullptr;
+__itt_string_handle* 	volatile __itt_Run_Queue_Enqueue	= nullptr;
+__itt_string_handle* 	volatile __itt_Submission_Queue_Dequeue	= nullptr;
 __itt_string_handle* 	volatile __itt_Submission_Queue_Enqueue	= nullptr;
-__itt_string_handle* 	volatile __itt_New_Tasks_Queue_Copy		= nullptr;
-__itt_string_handle* 	volatile __itt_New_Tasks_Queue_Full		= nullptr;
-__itt_string_handle* 	volatile __itt_Finished_Tasks_Queue_Dequeue	= nullptr;
-__itt_string_handle* 	volatile __itt_Finished_Tasks_Queue_Enqueue	= nullptr;
-__itt_string_handle* 	volatile __itt_Control_Thread_Barrier_Wait	= nullptr;
-__itt_string_handle* 	volatile __itt_Worker_Thread_Barrier	= nullptr;
+__itt_string_handle* 	volatile __itt_Submission_Queue_Copy		= nullptr;
+__itt_string_handle* 	volatile __itt_Submission_Queue_Add		= nullptr;
+__itt_string_handle* 	volatile __itt_Retirement_Queue_Dequeue	= nullptr;
+__itt_string_handle* 	volatile __itt_Retirement_Queue_Enqueue	= nullptr;
+__itt_string_handle* 	volatile __itt_CT_Barrier_Wait	= nullptr;
+__itt_string_handle* 	volatile __itt_WT_Barrier	= nullptr;
 __itt_string_handle* 	volatile __itt_Task_In_Execution	= nullptr;
 __itt_string_handle* 	volatile __itt_Task_Stealing	= nullptr;
-__itt_string_handle* 	volatile __itt_Add_Task_To_TaskGraph	= nullptr;
-__itt_string_handle* 	volatile __itt_Del_Task_From_TaskGraph	= nullptr;
+__itt_string_handle* 	volatile __itt_TaskGraph_Add	= nullptr;
+__itt_string_handle* 	volatile __itt_TaskGraph_Del	= nullptr;
 __itt_string_handle* 	volatile __itt_Checking_Dependences	= nullptr;
 __itt_string_handle* 	volatile __itt_Releasing_Dependences	= nullptr;
-__itt_string_handle* 	volatile __itt_Task_Alloc	= nullptr;
-__itt_string_handle* 	volatile __itt_Task_With_Deps	= nullptr;
-__itt_string_handle* 	volatile __itt_Worker_Thread_Wait_For_Work	= nullptr;
+__itt_string_handle* 	volatile __itt_CT_Task_Alloc	= nullptr;
+__itt_string_handle* 	volatile __itt_CT_Task_With_Deps	= nullptr;
+__itt_string_handle* 	volatile __itt_WT_Wait_For_Work	= nullptr;
 
 
 extern void steal_from_single_run_queue(bool just_a_bit);
@@ -81,25 +81,25 @@ int stick_this_thread_to_core(int core_id) {
 
 void __mtsp_initialize() {
     __itt_mtsp_domain = __itt_domain_create("MTSP.SchedulerDomain");
-	__itt_ReadyQueue_Dequeue = __itt_string_handle_create("ReadyQueue_Dequeue");
-	__itt_RunQueue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
-	__itt_New_Tasks_Queue_Dequeue = __itt_string_handle_create("New_Tasks_Queue_Dequeue");
+	__itt_Run_Queue_Dequeue = __itt_string_handle_create("ReadyQueue_Dequeue");
+	__itt_Run_Queue_Enqueue = __itt_string_handle_create("ReadyQueue_Enqueue");
+	__itt_Submission_Queue_Dequeue = __itt_string_handle_create("New_Tasks_Queue_Dequeue");
 	__itt_Submission_Queue_Enqueue = __itt_string_handle_create("New_Tasks_Queue_Enqueue");
-	__itt_New_Tasks_Queue_Full = __itt_string_handle_create("New_Tasks_Queue_Full");
-	__itt_New_Tasks_Queue_Copy = __itt_string_handle_create("New_Tasks_Queue_Copy");
-	__itt_Finished_Tasks_Queue_Dequeue = __itt_string_handle_create("Finished_Tasks_Queue_Dequeue");
-	__itt_Finished_Tasks_Queue_Enqueue = __itt_string_handle_create("Finished_Tasks_Queue_Enqueue");
-	__itt_Control_Thread_Barrier_Wait = __itt_string_handle_create("Control_Thread_Barrier_Wait");
-	__itt_Worker_Thread_Barrier = __itt_string_handle_create("Worker_Thread_Barrier");
-	__itt_Worker_Thread_Wait_For_Work = __itt_string_handle_create("Worker_Thread_Wait_For_Work");
+	__itt_Submission_Queue_Add = __itt_string_handle_create("New_Tasks_Queue_Full");
+	__itt_Submission_Queue_Copy = __itt_string_handle_create("New_Tasks_Queue_Copy");
+	__itt_Retirement_Queue_Dequeue = __itt_string_handle_create("Finished_Tasks_Queue_Dequeue");
+	__itt_Retirement_Queue_Enqueue = __itt_string_handle_create("Finished_Tasks_Queue_Enqueue");
+	__itt_CT_Barrier_Wait = __itt_string_handle_create("Control_Thread_Barrier_Wait");
+	__itt_WT_Barrier = __itt_string_handle_create("Worker_Thread_Barrier");
+	__itt_WT_Wait_For_Work = __itt_string_handle_create("Worker_Thread_Wait_For_Work");
 	__itt_Task_In_Execution = __itt_string_handle_create("Task_In_Execution");
 	__itt_Task_Stealing = __itt_string_handle_create("Task_Stealing");
-	__itt_Add_Task_To_TaskGraph = __itt_string_handle_create("Add_Task_To_TaskGraph");
-	__itt_Del_Task_From_TaskGraph = __itt_string_handle_create("Del_Task_From_TaskGraph");
+	__itt_TaskGraph_Add = __itt_string_handle_create("Add_Task_To_TaskGraph");
+	__itt_TaskGraph_Del = __itt_string_handle_create("Del_Task_From_TaskGraph");
 	__itt_Checking_Dependences = __itt_string_handle_create("Checking_Dependences");
 	__itt_Releasing_Dependences = __itt_string_handle_create("Releasing_Dependences");
-	__itt_Task_Alloc = __itt_string_handle_create("Task_Alloc");
-	__itt_Task_With_Deps = __itt_string_handle_create("Task_With_Deps");
+	__itt_CT_Task_Alloc = __itt_string_handle_create("Task_Alloc");
+	__itt_CT_Task_With_Deps = __itt_string_handle_create("Task_With_Deps");
 
 
 	//===-------- This slot is free for use by any thread ----------===//
@@ -146,7 +146,7 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 
 	/// TODO: Can we improve this?
 	{
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_New_Tasks_Queue_Copy);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Copy);
 
 		newTask->metadata->dep_list = (kmp_depend_info*) malloc(sizeof(kmp_depend_info) * ndeps);
 		for (kmp_uint32 i=0; i<ndeps; i++)
@@ -157,7 +157,7 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 
 	newTask->metadata->ndeps = ndeps;
 
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_New_Tasks_Queue_Full);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Add);
 	submissionQueue.enq(newTask);
 	__itt_task_end(__itt_mtsp_domain);
 

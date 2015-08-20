@@ -104,27 +104,27 @@
 	extern __itt_domain* 		volatile __itt_mtsp_domain;
 
 	/// Labels for itt-events representing enqueue and dequeue from the ready tasks queue
-	extern __itt_string_handle* volatile __itt_ReadyQueue_Dequeue;
-	extern __itt_string_handle* volatile __itt_RunQueue_Enqueue;
+	extern __itt_string_handle* volatile __itt_Run_Queue_Dequeue;
+	extern __itt_string_handle* volatile __itt_Run_Queue_Enqueue;
 
 	/// Labels for itt-events representing enqueue and dequeue from the new tasks queue
-	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Dequeue;
+	extern __itt_string_handle* volatile __itt_Submission_Queue_Dequeue;
 	extern __itt_string_handle* volatile __itt_Submission_Queue_Enqueue;
-	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Copy;
-	extern __itt_string_handle* volatile __itt_New_Tasks_Queue_Full;
+	extern __itt_string_handle* volatile __itt_Submission_Queue_Copy;
+	extern __itt_string_handle* volatile __itt_Submission_Queue_Add;
 
 	/// Labels for itt-events representing enqueue and dequeue from the finished tasks queue
-	extern __itt_string_handle* volatile __itt_Finished_Tasks_Queue_Dequeue;
-	extern __itt_string_handle* volatile __itt_Finished_Tasks_Queue_Enqueue;
+	extern __itt_string_handle* volatile __itt_Retirement_Queue_Dequeue;
+	extern __itt_string_handle* volatile __itt_Retirement_Queue_Enqueue;
 
 	/// Labels for itt-events representing periods where the control thread was waiting in a taskwait barrier
-	extern __itt_string_handle* volatile __itt_Control_Thread_Barrier_Wait;
+	extern __itt_string_handle* volatile __itt_CT_Barrier_Wait;
 
 	/// Labels for itt-events representing periods where an worker thread was waiting in a taskwait barrier
-	extern __itt_string_handle* volatile __itt_Worker_Thread_Barrier;
+	extern __itt_string_handle* volatile __itt_WT_Barrier;
 
 	/// Label for itt-events representing periods where an worker thread was waiting for tasks to execute
-	extern __itt_string_handle* volatile __itt_Worker_Thread_Wait_For_Work;
+	extern __itt_string_handle* volatile __itt_WT_Wait_For_Work;
 
 	/// Label for itt-events representing periods where an worker thread was executing a task
 	extern __itt_string_handle* volatile __itt_Task_In_Execution;
@@ -133,18 +133,18 @@
 	extern __itt_string_handle* volatile __itt_Task_Stealing;
 
 	/// Labels for itt-events representing periods where a new task was being added/deleted to/from the task graph
-	extern __itt_string_handle* volatile __itt_Add_Task_To_TaskGraph;
-	extern __itt_string_handle* volatile __itt_Del_Task_From_TaskGraph;
+	extern __itt_string_handle* volatile __itt_TaskGraph_Add;
+	extern __itt_string_handle* volatile __itt_TaskGraph_Del;
 
 	/// Labels for itt-events representing periods where the dependence checker was checking/releasing dependences
 	extern __itt_string_handle* volatile __itt_Checking_Dependences;
 	extern __itt_string_handle* volatile __itt_Releasing_Dependences;
 
 	/// Labels for itt-events representing periods where the control thread was executing task_alloc
-	extern __itt_string_handle* volatile __itt_Task_Alloc;
+	extern __itt_string_handle* volatile __itt_CT_Task_Alloc;
 
 	/// Labels for itt-events representing periods where the control thread was executing task_with_deps
-	extern __itt_string_handle* volatile __itt_Task_With_Deps;
+	extern __itt_string_handle* volatile __itt_CT_Task_With_Deps;
 
 
 

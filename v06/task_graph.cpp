@@ -3,6 +3,10 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <queue>
+#include <map>
+#include <sstream>
+#include <iomanip>
+
 
 #include "kmp.h"
 #include "task_graph.h"
@@ -16,10 +20,48 @@ kmp_uint16 			volatile	depCounters[MAX_TASKS];
 kmp_uint16 			volatile	dependents[MAX_TASKS][MAX_DEPENDENTS+1];
 kmp_uint16 			volatile	freeSlots[MAX_TASKS + 1];
 
+std::string colorNames[] = {"red", "blue", "cyan", "magenta"};
+
+void nodeLabel(std::stringstream& ss, int idx) {
+	ss.str("");
+	ss.clear();
+	ss << "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\">";
+	ss << "<tr><td align=\"center\">ID:: " << std::dec << idx << "</td></tr>";
+
+	auto ndeps = tasks[idx]->metadata->ndeps;
+	auto deps = tasks[idx]->metadata->dep_list;
+
+	/// Iterate over each dependence
+	for (kmp_uint32 depIdx=0; depIdx<ndeps; depIdx++) {
+		bool isInput	= deps[depIdx].flags.in;
+		bool isOutput	= deps[depIdx].flags.out;
+
+		ss << "<tr><td align=\"center\">";
+
+		if (isInput) ss << "R"; else ss << " ";
+		if (isOutput) ss << "W"; else ss << " ";
+
+		ss << ": " << std::setfill('0') << std::setw(2) << std::hex << deps[depIdx].base_addr;
+
+		ss << "</td></tr>";
+	}
+
+	ss << "</table>";
+}
+
+std::string nextColor() {
+	static int index = 0;
+	return colorNames[index++ % 4];
+}
 
 void __mtsp_dumpTaskGraphToDot() {
+	/// Just for the node labels;
+	std::stringstream ss;
+
 	/// identify which nodes are present in the TG
 	bool present[MAX_TASKS];
+
+	static std::map<kmp_routine_entry, std::string> colors;
 
 	/// at the begining everybody is present
 	for (int i=0; i<MAX_TASKS; i++) present[i] = true;
@@ -42,10 +84,14 @@ void __mtsp_dumpTaskGraphToDot() {
 
 	/// for each present node
 	for (int src=0; src<MAX_TASKS; src++) { if (present[src]) {
-		fprintf(fp, "Node_%03d [shape=circle];\n", src);
+		if (colors.find(tasks[src]->routine) == colors.end())
+			colors[tasks[src]->routine] = nextColor();
+
+		nodeLabel(ss, src);
+		fprintf(fp, "Node_%04d [style=filled fillcolor=%s shape=\"Mrecord\" label=<%s>];\n", src, colors[tasks[src]->routine].c_str(), ss.str().c_str());
 
 		for (int j=1; j<=dependents[src][0]; j++) {
-			fprintf(fp, "Node_%03d -> Node_%03d;\n", src, dependents[src][j]);
+			fprintf(fp, "Node_%04d -> Node_%04d;\n", src, dependents[src][j]);
 		}
 	}}
 
@@ -74,7 +120,7 @@ void __mtsp_initializeTaskGraph() {
 
 
 void removeFromTaskGraph(kmp_task* finishedTask) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Del_Task_From_TaskGraph);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
 
 	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
 
@@ -88,7 +134,7 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 		depCounters[depId]--;
 
 		if (depCounters[depId] == 0) {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
 			RunQueue.enq( tasks[depId] );
 			__itt_task_end(__itt_mtsp_domain);
 		}
@@ -118,7 +164,7 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 
 void addToTaskGraph(kmp_task* newTask) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Add_Task_To_TaskGraph);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Add);
 
 	kmp_uint32 ndeps = newTask->metadata->ndeps;
 	kmp_depend_info* depList = newTask->metadata->dep_list;
@@ -142,7 +188,7 @@ void addToTaskGraph(kmp_task* newTask) {
 
 	/// if the task has depPattern == 0 then it may already be dispatched.
 	if (depCounter == 0) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
 		RunQueue.enq( newTask );
 		__itt_task_end(__itt_mtsp_domain);
 	}

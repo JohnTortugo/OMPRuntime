@@ -196,7 +196,7 @@ kmp_uint16 nextWorkerThread() {
 }
 
 void removeFromTaskGraph(kmp_task* finishedTask) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Del_Task_From_TaskGraph);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
 
 	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
 	kmp_uint64 mask = ~((kmp_uint64)1 << idOfFinishedTask);
@@ -224,7 +224,7 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 		/// If the task now has 0 dependences.
 		if (prev != 0 && taskGraph[slotId] == 0) {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 			RunQueues[ nextWorkerThread() ].enq( tasks[slotId] );
 #else
@@ -238,7 +238,7 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 }
 
 void addToTaskGraph(kmp_task* newTask) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Add_Task_To_TaskGraph);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Add);
 	ACQUIRE(&lock_dependenceTable);
 
 	kmp_uint32 ndeps = newTask->metadata->ndeps;
@@ -264,7 +264,7 @@ void addToTaskGraph(kmp_task* newTask) {
 
 	/// if the task has depPattern == 0 then it may already be dispatched.
 	if (depPattern == 0) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RunQueue_Enqueue);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
 #ifdef MTSP_MULTIPLE_RUN_QUEUES
 		RunQueues[ nextWorkerThread() ].enq( newTask );
 #else

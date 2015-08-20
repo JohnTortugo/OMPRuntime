@@ -1,15 +1,58 @@
-#ifndef __MTSP_FE_INTERFACE_HEADER
-#define __MTSP_FE_INTERFACE_HEADER 1
+#ifndef __MTSP_INTERFACE_HEADER
+	#define __MTSP_INTERFACE_HEADER 1
 
 #include "kmp.h"
+#include "hws.h"
 #include "ThreadedQueue.h"
+#include <pthread.h>
 
-/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-#define SUBMISSION_QUEUE_SIZE			 8192
-#define SUBMISSION_QUEUE_BATCH_SIZE			4
-#define SUBMISSION_QUEUE_CF	  			   75
+/// Tells the maximum number of (!!)Bytes(!!) in the submission, run and retirement queue
+#define MAX_TASKS						   				128
+#define SUBMISSION_QUEUE_SIZE			 	(MAX_TASKS * 8)
+#define RUN_QUEUE_SIZE						(MAX_TASKS * 8)
+#define RETIREMENT_QUEUE_SIZE				(MAX_TASKS * 8)
 
-extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
+
+
+extern pthread_t hwsThread;
+
+extern bool __mtsp_initialized;
+
+extern struct QDescriptor* __mtsp_SubmissionQueueDesc;
+extern struct QDescriptor* __mtsp_RunQueueDesc;
+extern struct QDescriptor* __mtsp_RetirementQueueDesc;
+
+
+extern kmp_task* volatile tasks[MAX_TASKS];
+extern SPSCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
+
+
+
+
+
+
+
+/**
+ * This is the function responsible for initializing the systemC (HWS) module.
+ */
+void* __hws_init(void *);
+
+/**
+ * Tells whether hws is alive or not.
+ */
+extern volatile char hws_alive;
+
+
+/**
+ * Used to initialize the MTSP bridge. This allocate space for the submission,
+ * run queues and retirement queues and sends their address to the HWS module.
+ */
+void __mtsp_bridge_init();
+
+
+
+
+void __mtsp_enqueue_into_submission_queue(unsigned long long packet);
 
 
 /**
@@ -131,5 +174,6 @@ void __kmpc_end_master(ident* loc, kmp_int32 gtid);
 extern "C" {
 	int omp_get_num_threads();
 }
+
 
 #endif

@@ -77,7 +77,7 @@ kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int32* memorySlotId) {
 }
 
 kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task_t, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Alloc);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_Alloc);
 
 	kmp_uint32 shareds_offset  = sizeof(kmp_taskdata) + sizeof_kmp_task_t;
 	kmp_int32 sizeOfMetadata = sizeof(mtsp_task_metadata);
@@ -139,7 +139,7 @@ void steal_from_single_run_queue(bool just_a_bit) {
 			tasksExecutedByCT++;
 
 			/// Inform that this task has finished execution
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 #ifdef MTSP_MULTIPLE_RETIRE_QUEUES
 			RetirementQueues[myId].enq(taskToExecute);
 #else
@@ -172,7 +172,7 @@ void executeStealed(kmp_task* taskToExecute) {
 	tasksExecutedByCT++;
 
 	/// Inform that this task has finished execution
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 #ifdef MTSP_MULTIPLE_RETIRE_QUEUES
 	RetirementQueues[myId].enq(taskToExecute);
 #else
@@ -298,7 +298,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	#endif
 #endif
 
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
 
 	/// TODO: have to check if we aren't already at a barrier. This may happen
 	/// if we let several threads to call taskwait();
@@ -356,7 +356,7 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	#endif
 #endif
 
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
 
 	/// TODO: have to check if we aren't already at a barrier. This may happen
 	/// if we let several threads to call taskwait();

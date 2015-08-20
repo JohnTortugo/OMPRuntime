@@ -48,7 +48,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     for(i=0; i < argc; i++) { *argv++ = va_arg(ap, void *); }
 	va_end(ap);
 
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Fork_Call);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Fork_Call);
 
 	/// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
     (microtask)(&tid, &tid, argvcp[0]);
@@ -81,7 +81,7 @@ kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int32* memorySlotId) {
 }
 
 kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task_t, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Alloc);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_Alloc);
 
 	kmp_uint32 shareds_offset  = sizeof(kmp_taskdata) + sizeof_kmp_task_t;
 	kmp_int32 sizeOfMetadata = sizeof(mtsp_task_metadata);
@@ -101,7 +101,7 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 }
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_With_Deps);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_With_Deps);
 
 	/// Ask to add this task to the task graph
 	__mtsp_addNewTask(new_task, ndeps, dep_list);
@@ -144,7 +144,7 @@ void steal_from_single_run_queue(bool just_a_bit) {
 			tasksExecutedByCT++;
 
 			/// Inform that this task has finished execution
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 #ifdef MTSP_MULTIPLE_RETIRE_QUEUES
 			RetirementQueues[myId].enq(taskToExecute);
 #else
@@ -179,7 +179,7 @@ void executeStealed() {
 		tasksExecutedByCT++;
 
 		/// Inform that this task has finished execution
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 #ifdef MTSP_MULTIPLE_RETIRE_QUEUES
 		RetirementQueues[myId].enq(taskToExecute);
 #else
@@ -224,7 +224,7 @@ void steal_from_multiple_run_queue(bool just_a_bit) {
 }
 
 kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
 
 	/// Flush the current state of the submission queues..
 	submissionQueue.fsh();
@@ -275,7 +275,7 @@ kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
 }
 
 void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Control_Thread_Barrier_Wait);
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
 
 	/// Flush the current state of the submission queues..
 	submissionQueue.fsh();

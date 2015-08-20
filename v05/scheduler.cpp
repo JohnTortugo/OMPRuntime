@@ -96,7 +96,7 @@ void* workerThreadCode(void* params) {
 			tasksExecuted++;
 
 			/// Inform that this task has finished execution
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 #ifdef MTSP_MULTIPLE_RETIRE_QUEUES
 			RetirementQueues[myId].enq(taskToExecute);
 #else
@@ -116,12 +116,12 @@ void* workerThreadCode(void* params) {
 				WaitingStealAnswer[myId] = true;
 			}
 #endif
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Wait_For_Work);
 
 			/// has a barrier been activated?
 			if (__mtsp_threadWait == true) {
 				if (__mtsp_inFlightTasks == 0) {
-					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Barrier);
+					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Barrier);
 
 					ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
 

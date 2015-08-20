@@ -29,9 +29,6 @@ void* workerThreadCode(void* params) {
 	kmp_uint16 myId 		= *tasksIdent;
 	char taskName[100];
 
-	/// Init random number generator. We use this on the work stealing part.
-	srandom( time(NULL) );
-
 	/// Stick this thread to execute on the "Core X"
 	stick_this_thread_to_core(*tasksIdent);
 
@@ -43,7 +40,9 @@ void* workerThreadCode(void* params) {
 	kmp_uint64 tasksExecuted = 0;
 
 	while (true) {
+#ifdef TG_DUMP_MODE
 		while (!__mtsp_activate_workers);
+#endif
 
 		if (RunQueue.try_deq(&taskToExecute)) {
 			/// Start execution of the task
@@ -54,16 +53,16 @@ void* workerThreadCode(void* params) {
 			tasksExecuted++;
 
 			/// Inform that this task has finished execution
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Finished_Tasks_Queue_Enqueue);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 			RetirementQueue.enq(taskToExecute);
 			__itt_task_end(__itt_mtsp_domain);
 		}
 		else {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Wait_For_Work);
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Wait_For_Work);
 			/// has a barrier been activated?
 			if (__mtsp_threadWait == true) {
 				if (__mtsp_inFlightTasks == 0) {
-					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Worker_Thread_Barrier);
+					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Barrier);
 
 					ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
 

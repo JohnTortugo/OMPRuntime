@@ -1,7 +1,7 @@
 #ifndef MCRINGBUFFER_H_
 #define MCRINGBUFFER_H_
 
-#include "mtsp.h"
+#include "kmp.h"
 #include <stdio.h>
 #include <stdlib.h>
 
