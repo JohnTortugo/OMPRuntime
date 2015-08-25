@@ -18,7 +18,7 @@
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserva a large space for task graph, submission queue, run queue, etc.
-///	#define TG_DUMP_MODE					1
+//	#define TG_DUMP_MODE					1
 
 	/// Activate (when undefined) or deactivate (when defined) ITTNotify Events
 //	#define	INTEL_NO_ITTNOFIFY_API			1
@@ -54,7 +54,7 @@
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
 	/// larger than this will use a memory region returned by a call to std malloc.
-	#define TASK_METADATA_MAX_SIZE 256
+	#define TASK_METADATA_MAX_SIZE  256
 	#define MAX_TASKMETADATA_SLOTS 4096
 
 	/// Memory region from where new tasks metadata will be allocated.

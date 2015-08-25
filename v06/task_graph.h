@@ -10,7 +10,7 @@
 	//===----------------------------------------------------------------------===//
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		       64
+	#define MAX_TASKS 					     		     4096 
 	#define MAX_DEPENDENTS						  	MAX_TASKS
 
 	/// Tells whether we have already initialized the task graph data structures
