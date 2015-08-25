@@ -144,6 +144,11 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	releaseDependencies(idOfFinishedTask, finishedTask->metadata->ndeps, finishedTask->metadata->dep_list);
 
 
+	/// Release the taskmetadata slot used
+	if (finishedTask->metadata->metadata_slot_id >= 0) {
+//		printf("REleasing slot %d\n", finishedTask->metadata->metadata_slot_id);
+		__mtsp_taskMetadataStatus[finishedTask->metadata->metadata_slot_id] = false;
+	}
 
 	/// This slot is empty
 	dependents[idOfFinishedTask][0] = 0;
@@ -152,11 +157,6 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 	freeSlots[0]++;
 	freeSlots[freeSlots[0]] = idOfFinishedTask;
-
-	/// Release the taskmetadata slot used
-	if (finishedTask->metadata->metadata_slot_id >= 0) {
-		__mtsp_taskMetadataStatus[finishedTask->metadata->metadata_slot_id] = false;
-	}
 
 	__itt_task_end(__itt_mtsp_domain);
 }

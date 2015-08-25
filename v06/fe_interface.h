@@ -4,10 +4,9 @@
 #include "kmp.h"
 #include "ThreadedQueue.h"
 
-/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-#define SUBMISSION_QUEUE_SIZE			 8192
-#define SUBMISSION_QUEUE_BATCH_SIZE			4
-#define SUBMISSION_QUEUE_CF	  			   75
+
+extern kmp_uint64 tasksExecutedByCT;
+extern volatile kmp_uint64 tasksExecutedByRT;
 
 extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
 

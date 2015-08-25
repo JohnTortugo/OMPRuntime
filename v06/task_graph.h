@@ -1,7 +1,7 @@
 #ifndef __MTSP_TASK_GRAPH_HEADER
 	#define __MTSP_TASK_GRAPH_HEADER 1
 
-	#include "kmp.h"
+	#include "mtsp.h"
 
 	//===----------------------------------------------------------------------===//
 	//
@@ -9,9 +9,6 @@
 	//
 	//===----------------------------------------------------------------------===//
 
-	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		     4096 
-	#define MAX_DEPENDENTS						  	MAX_TASKS
 
 	/// Tells whether we have already initialized the task graph data structures
 	extern bool 							taskGraphInitialized;

@@ -1,17 +1,9 @@
 #ifndef __MTSP_SCHEDULER_HEADER
 	#define __MTSP_SCHEDULER_HEADER 1
 
-	#include "kmp.h"
+	#include "mtsp.h"
 	#include "task_graph.h"
-	#include "ittnotify.h"
 	#include "ThreadedQueue.h"
-	#include <pthread.h>
-
-	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-	#define RUN_QUEUE_SIZE				MAX_TASKS
-	#define RUN_QUEUE_CF			    50
-
-	#define RETIREMENT_QUEUE_SIZE		MAX_TASKS
 
 	/// The bool var is used to set a flag indicating that worker threads must "barrier" synchronize
 	/// The counter is used to count how many threads have already reached to the barrier

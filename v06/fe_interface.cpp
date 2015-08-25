@@ -13,6 +13,7 @@
 #include "fe_interface.h"
 
 kmp_uint64 tasksExecutedByCT = 0;
+volatile kmp_uint64 tasksExecutedByRT = 0;
 
 SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
 
@@ -55,7 +56,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     __itt_task_end(__itt_mtsp_domain);
 }
 
-kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int32* memorySlotId) {
+kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int16* memorySlotId) {
 	if (numBytes > TASK_METADATA_MAX_SIZE) {
 		printf("Request for metadata slot to big: %u\n", numBytes);
 		return (kmp_taskdata*) malloc(numBytes);
@@ -70,7 +71,8 @@ kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int32* memorySlotId) {
 		}
 	}
 
-	fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots.\n", __FUNCTION__, __LINE__);
+	static int counter = 0;
+	fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots. %d\n", __FUNCTION__, __LINE__, counter++);
 
 	/// Lets take the "safe" side here..
 	return (kmp_taskdata*) malloc(numBytes);
@@ -81,7 +83,7 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 
 	kmp_uint32 shareds_offset  = sizeof(kmp_taskdata) + sizeof_kmp_task_t;
 	kmp_int32 sizeOfMetadata = sizeof(mtsp_task_metadata);
-	kmp_int32 memorySlotId = -1;
+	kmp_int16 memorySlotId = -1;
 
     kmp_taskdata* taskdata = allocateTaskData(shareds_offset + sizeof_shareds + sizeOfMetadata, &memorySlotId);
 
@@ -183,7 +185,8 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 #endif
 
 #ifdef MTSP_DUMP_STATS
-	printf("%llu tasks were executed by the control thread.\n\n", tasksExecutedByCT);
+	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
+	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
 #endif
 
 	__itt_task_end(__itt_mtsp_domain);
@@ -239,7 +242,8 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 #endif
 
 #ifdef MTSP_DUMP_STATS
-	printf("%llu tasks were executed by the control thread.\n\n", tasksExecutedByCT);
+	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
+	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
 #endif
 
 	__itt_task_end(__itt_mtsp_domain);

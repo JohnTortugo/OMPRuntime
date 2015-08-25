@@ -23,7 +23,7 @@ unsigned char volatile __mtsp_lock_initialized 	 = 0;
 unsigned char volatile __mtsp_lock_newTasksQueue = 0;
 
 /// Variables/constants related to the the taskMetadata buffer
-bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
+bool volatile __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
 
@@ -151,6 +151,30 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 	__itt_task_end(__itt_mtsp_domain);
 }
 
+void __mtsp_RuntimeWorkSteal() {
+	kmp_task* taskToExecute = nullptr;
+
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
+
+	while (RunQueue.cur_load() > RunQueue.cont_load()) {
+		if (RunQueue.try_deq(&taskToExecute)) {
+			/// Start execution of the task
+			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+			(*(taskToExecute->routine))(0, taskToExecute);
+			__itt_task_end(__itt_mtsp_domain);
+
+			tasksExecutedByRT++;
+
+			/// Inform that this task has finished execution
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
+			RetirementQueue.enq(taskToExecute);
+			__itt_task_end(__itt_mtsp_domain);
+		}
+	}
+
+	__itt_task_end(__itt_mtsp_domain);
+}
+
 void* __mtsp_RuntimeThreadCode(void* params) {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//
 	__itt_thread_set_name("MTSPRuntime");
@@ -158,6 +182,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	stick_this_thread_to_core(__MTSP_RUNTIME_THREAD_CORE__);
 	kmp_task* task = nullptr;
 	kmp_uint64 iterations = 0;
+	kmp_uint64 BatchSize = (64 - 1);	// should be 2^N - 1
 
 	while (true) {
 		/// Check if the execution of a task has been completed
@@ -168,13 +193,14 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		if (freeSlots[0] > 0 && submissionQueue.try_deq(&task))
 			addToTaskGraph(task);
 
-//		/// This is a hack. It would be nice to have a better algorithm for
-//		/// intercore queue that do not suffer from false sharing and also
-//		/// do not need this.
-//		/// What this actually does is make sure the queues do not get stuck.
-//		iterations++;
-//		if ((iterations & 0xFF) == 0)
-//			submissionQueue.fsh();
+#ifdef MTSP_WORKSTEALING_RT
+		iterations++;
+		if ((iterations & BatchSize) == 0) {
+			if (RunQueue.cur_load() > __mtsp_numWorkerThreads) {		// may be we should consider the CT also
+				__mtsp_RuntimeWorkSteal();
+			}
+		}
+#endif
 	}
 
 	return 0;

@@ -24,10 +24,10 @@
 //	#define	INTEL_NO_ITTNOFIFY_API			1
 
 	/// Uncomment if you want the CT to steal work
-///	#define MTSP_WORKSTEALING_CT			1
+	#define MTSP_WORKSTEALING_CT			1
 
 	/// Uncomment if you want the RT to steal work
-///	#define MTSP_WORKSTEALING_RT			1
+	#define MTSP_WORKSTEALING_RT			1
 
 	/// Uncomment if you want to see some statistics at the end of
 	#define MTSP_DUMP_STATS					1
@@ -52,13 +52,29 @@
 
 
 
+	/// Represents the maximum number of tasks that can be stored in the task graph
+	#define MAX_TASKS 					     		       4096
+	#define MAX_DEPENDENTS						  	  MAX_TASKS
+
+	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
+	#define SUBMISSION_QUEUE_SIZE			 			   512
+	#define SUBMISSION_QUEUE_BATCH_SIZE						 4
+	#define SUBMISSION_QUEUE_CF	  			   				 5
+
+
+	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
+	#define RUN_QUEUE_SIZE							  MAX_TASKS
+	#define RUN_QUEUE_CF			    					  1
+
+	#define RETIREMENT_QUEUE_SIZE		MAX_TASKS
+
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
 	/// larger than this will use a memory region returned by a call to std malloc.
-	#define TASK_METADATA_MAX_SIZE  256
-	#define MAX_TASKMETADATA_SLOTS 4096
+	#define TASK_METADATA_MAX_SIZE  									256
+	#define MAX_TASKMETADATA_SLOTS 		(MAX_TASKS + SUBMISSION_QUEUE_SIZE)
 
 	/// Memory region from where new tasks metadata will be allocated.
-	extern bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
+	extern volatile bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 	extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
 

@@ -171,8 +171,8 @@ public:
 		for (int i=0; i<QUEUE_SIZE; i++)
 			status[i] = EMPTY;
 
-		rlock = UNLOCKED;
-		wlock = UNLOCKED;
+		rlock = Q_UNLOCKED;
+		wlock = Q_UNLOCKED;
 		head = 0;
 		tail = 0;
 	}
