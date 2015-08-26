@@ -193,14 +193,15 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		if (freeSlots[0] > 0 && submissionQueue.try_deq(&task))
 			addToTaskGraph(task);
 
-#ifdef MTSP_WORKSTEALING_RT
 		iterations++;
 		if ((iterations & BatchSize) == 0) {
+			submissionQueue.fsh();
+#ifdef MTSP_WORKSTEALING_RT
 			if (RunQueue.cur_load() > __mtsp_numWorkerThreads) {		// may be we should consider the CT also
 				__mtsp_RuntimeWorkSteal();
 			}
-		}
 #endif
+		}
 	}
 
 	return 0;

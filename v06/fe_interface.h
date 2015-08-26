@@ -6,6 +6,7 @@
 
 
 extern kmp_uint64 tasksExecutedByCT;
+extern kmp_uint64 metadataRequestsNotServiced;
 extern volatile kmp_uint64 tasksExecutedByRT;
 
 extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;

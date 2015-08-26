@@ -13,6 +13,7 @@
 #include "fe_interface.h"
 
 kmp_uint64 tasksExecutedByCT = 0;
+kmp_uint64 metadataRequestsNotServiced = 0;
 volatile kmp_uint64 tasksExecutedByRT = 0;
 
 SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
@@ -58,7 +59,10 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 
 kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int16* memorySlotId) {
 	if (numBytes > TASK_METADATA_MAX_SIZE) {
+#ifdef DEBUG_MODE
 		printf("Request for metadata slot to big: %u\n", numBytes);
+#endif
+		metadataRequestsNotServiced++;
 		return (kmp_taskdata*) malloc(numBytes);
 	}
 	else {
@@ -71,8 +75,12 @@ kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int16* memorySlotId) {
 		}
 	}
 
+#ifdef DEBUG_MODE
 	static int counter = 0;
 	fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots. %d\n", __FUNCTION__, __LINE__, counter++);
+#endif
+
+	metadataRequestsNotServiced++;
 
 	/// Lets take the "safe" side here..
 	return (kmp_taskdata*) malloc(numBytes);

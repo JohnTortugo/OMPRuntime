@@ -70,7 +70,7 @@
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
 	/// larger than this will use a memory region returned by a call to std malloc.
-	#define TASK_METADATA_MAX_SIZE  									256
+	#define TASK_METADATA_MAX_SIZE  									750
 	#define MAX_TASKMETADATA_SLOTS 		(MAX_TASKS + SUBMISSION_QUEUE_SIZE)
 
 	/// Memory region from where new tasks metadata will be allocated.
