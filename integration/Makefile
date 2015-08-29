@@ -7,7 +7,7 @@ CFLAGS		= -g -std=c++11 -Wall -Werror -fpic $(SERRORS)
 OPT_LVL		= -O3
 
 mtsp: $(OBJS)
-	g++ $(OBJS) -shared -L./ -lmemory -o $(LIB_NAME)
+	g++ $(OBJS) -shared -L./ -ltga -o $(LIB_NAME)
 
 clean:
 	rm -rf $(OBJS) $(LIB_NAME)

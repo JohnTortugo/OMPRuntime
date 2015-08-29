@@ -122,6 +122,9 @@ void __mtsp_enqueue_into_submission_queue(unsigned long long packet) {
 	if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP - SUBQ] Packet with payload [%llx] going to index %02ld of subq, address %p\n" ANSI_COLOR_RESET, packet, __mtsp_SubmissionQueueDesc->QTail, pos);
 
 	__mtsp_SubmissionQueueDesc->QTail = (__mtsp_SubmissionQueueDesc->QTail + sizeof(struct SQPacket)) % __mtsp_SubmissionQueueDesc->QSize;
+	//ringDoorbell(1);
+	//play_doorbell();
+	place_doorbell();
 }
 
 
@@ -224,7 +227,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	/// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
 
-//	hws_alive = false;
+	hws_alive = false;
 
 	return 0;
 }
@@ -265,7 +268,7 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	/// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
 
-//	hws_alive = false;
+	hws_alive = false;
 }
 
 

@@ -35,7 +35,15 @@ extern SPSCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
 /**
  * This is the function responsible for initializing the systemC (HWS) module.
  */
-void* __hws_init(void *);
+extern void* __hws_init(void *);
+
+/**
+ * This is used for ringing a doorbell of the Submission Queue whenever a new
+ * packet is inserted there.
+ */
+extern void ringDoorbell(long long int val);
+extern void play_doorbell();
+extern void place_doorbell();
 
 /**
  * Tells whether hws is alive or not.
