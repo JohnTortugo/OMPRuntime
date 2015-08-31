@@ -10,6 +10,8 @@
 #include "scheduler.h"
 
 
+#define LINEAR_DEBUG
+
 pthread_t hwsThread;
 bool __mtsp_initialized = false;
 
@@ -179,6 +181,8 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* deps, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
+	static int number_of_task_descriptors_sent = 0;
+	static int number_of_dependence_descriptors_sent = 0;
 	SQPacket subq_packet;
 
 	/// Obtain the id of the new task
@@ -189,6 +193,10 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 	/// Send the packet with the task descriptor
 	create_packet(subq_packet.payload, HWS_TASK_PACKET, HWS_QOS, (ndeps == 0), new_task->part_id);
+#ifdef LINEAR_DEBUG
+	printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue.\n", number_of_task_descriptors_sent++);
+#endif
+	
 	__mtsp_enqueue_into_submission_queue(subq_packet.payload);
 
 	/// Increment the number of tasks currently in the system
@@ -200,6 +208,10 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 		unsigned char mode = deps[i].flags.in | (deps[i].flags.out << 2);
 
 		create_packet(subq_packet.payload, HWS_DEP_PACKET, mode, (i == ndeps-1), deps[i].base_addr);
+
+#ifdef LINEAR_DEBUG
+	printf("[mtsp_bridge:]\tSending dependence descriptor #%d to the submission queue.\n", number_of_dependence_descriptors_sent++);
+#endif
 
 		__mtsp_enqueue_into_submission_queue(subq_packet.payload);
 	}
