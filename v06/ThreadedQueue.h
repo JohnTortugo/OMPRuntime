@@ -7,6 +7,7 @@
 
 /// for padding purposes
 #define L1D_LINE_SIZE 	   64
+#define USED			 	1
 #define EMPTY			 	0
 
 #define Q_LOCKED			1
@@ -183,7 +184,7 @@ public:
 		while (status[tail] != EMPTY);
 
 		data[tail] = elem;
-		status[tail] = true;
+		status[tail] = USED;
 
 		tail = ((tail+1) & (QUEUE_SIZE-1));
 
@@ -207,7 +208,7 @@ public:
 		GET_LOCK(&rlock);
 
 		if (status[head] != EMPTY) {
-			while (status[head] == EMPTY);
+			//while (status[head] == EMPTY);
 
 			*elem = data[head];
 			status[head] = EMPTY;
@@ -235,8 +236,9 @@ public:
 	}
 
 	~SimpleQueue() {
-		delete [] data;
-		delete [] status;
+		// For now this is the safest option
+		//delete [] data;
+		//delete [] status;
 	}
 };
 

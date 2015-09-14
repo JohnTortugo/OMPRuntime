@@ -139,10 +139,10 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 		for (kmp_uint32 i=0; i<ndeps; i++)
 			newTask->metadata->dep_list[i] = depList[i];
 
+		newTask->metadata->ndeps = ndeps;
+
 		__itt_task_end(__itt_mtsp_domain);
 	}
-
-	newTask->metadata->ndeps = ndeps;
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Add);
 	submissionQueue.enq(newTask);

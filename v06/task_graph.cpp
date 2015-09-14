@@ -22,6 +22,8 @@ kmp_uint16 			volatile	freeSlots[MAX_TASKS + 1];
 
 std::string colorNames[] = {"red", "blue", "cyan", "magenta"};
 
+
+
 void nodeLabel(std::stringstream& ss, int idx) {
 	ss.str("");
 	ss.clear();
@@ -49,10 +51,14 @@ void nodeLabel(std::stringstream& ss, int idx) {
 	ss << "</table>";
 }
 
+
+
 std::string nextColor() {
 	static int index = 0;
 	return colorNames[index++ % 4];
 }
+
+
 
 void __mtsp_dumpTaskGraphToDot() {
 	/// Just for the node labels;
@@ -101,6 +107,8 @@ void __mtsp_dumpTaskGraphToDot() {
 	printf("Taskgraph written to file %s\n", fileName);
 }
 
+
+
 void __mtsp_initializeTaskGraph() {
 	for (int i=0; i<MAX_TASKS; i++) {
 		tasks[i]			= nullptr;
@@ -146,7 +154,6 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 	/// Release the taskmetadata slot used
 	if (finishedTask->metadata->metadata_slot_id >= 0) {
-//		printf("REleasing slot %d\n", finishedTask->metadata->metadata_slot_id);
 		__mtsp_taskMetadataStatus[finishedTask->metadata->metadata_slot_id] = false;
 	}
 

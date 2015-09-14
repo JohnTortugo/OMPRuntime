@@ -53,24 +53,24 @@
 
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		       4096
+	#define MAX_TASKS 					     		         64
 	#define MAX_DEPENDENTS						  	  MAX_TASKS
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-	#define SUBMISSION_QUEUE_SIZE			 			   512
-	#define SUBMISSION_QUEUE_BATCH_SIZE						 4
-	#define SUBMISSION_QUEUE_CF	  			   				 5
+	#define SUBMISSION_QUEUE_SIZE			        2*MAX_TASKS
+	#define SUBMISSION_QUEUE_BATCH_SIZE						  4
+	#define SUBMISSION_QUEUE_CF	  			   				 50
 
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
 	#define RUN_QUEUE_SIZE							  MAX_TASKS
-	#define RUN_QUEUE_CF			    					  1
+	#define RUN_QUEUE_CF			    					 50
 
 	#define RETIREMENT_QUEUE_SIZE		MAX_TASKS
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
 	/// larger than this will use a memory region returned by a call to std malloc.
-	#define TASK_METADATA_MAX_SIZE  									750
+	#define TASK_METADATA_MAX_SIZE  									768
 	#define MAX_TASKMETADATA_SLOTS 		(MAX_TASKS + SUBMISSION_QUEUE_SIZE)
 
 	/// Memory region from where new tasks metadata will be allocated.
