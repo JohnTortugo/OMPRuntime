@@ -43,6 +43,7 @@ __itt_string_handle* volatile __itt_TaskGraph_Add = nullptr;
 __itt_string_handle* volatile __itt_TaskGraph_Del = nullptr;
 __itt_string_handle* volatile __itt_Checking_Dependences = nullptr;
 __itt_string_handle* volatile __itt_Releasing_Dependences = nullptr;
+__itt_string_handle* volatile __itt_Releasing_Dep_Reader = nullptr;
 __itt_string_handle* volatile __itt_CT_Barrier_Wait = nullptr;
 __itt_string_handle* volatile __itt_CT_Task_Alloc = nullptr;
 __itt_string_handle* volatile __itt_CT_Task_With_Deps = nullptr;
@@ -51,8 +52,10 @@ __itt_string_handle* volatile __itt_WT_Serving_Steal = nullptr;
 __itt_string_handle* volatile __itt_WT_Wait_For_Work = nullptr;
 __itt_string_handle* volatile __itt_Task_In_Execution = nullptr;
 __itt_string_handle* volatile __itt_Task_Stealing = nullptr;
-
-
+__itt_string_handle* volatile __itt_SPSC_Enq = nullptr;
+__itt_string_handle* volatile __itt_SPSC_Deq = nullptr;
+__itt_string_handle* volatile __itt_SPSC_Enq_Blocking = nullptr;
+__itt_string_handle* volatile __itt_SPSC_Deq_Blocking = nullptr;
 
 extern void steal_from_single_run_queue(bool just_a_bit);
 extern void steal_from_multiple_run_queue(bool just_a_bit);
@@ -93,6 +96,7 @@ void __mtsp_initialize() {
 	__itt_TaskGraph_Del = __itt_string_handle_create("TaskGraph_Del");
 	__itt_Checking_Dependences = __itt_string_handle_create("Checking_Dependences");
 	__itt_Releasing_Dependences = __itt_string_handle_create("Releasing_Dependences");
+	__itt_Releasing_Dep_Reader = __itt_string_handle_create("Releasing_Dep_Reader");
 	__itt_CT_Barrier_Wait = __itt_string_handle_create("CT_Barrier_Wait");
 	__itt_CT_Task_Alloc = __itt_string_handle_create("CT_Task_Alloc");
 	__itt_CT_Task_With_Deps = __itt_string_handle_create("CT_Task_With_Deps");
@@ -101,7 +105,10 @@ void __mtsp_initialize() {
 	__itt_WT_Wait_For_Work = __itt_string_handle_create("WT_Wait_For_Work");
 	__itt_Task_In_Execution = __itt_string_handle_create("Task_In_Execution");
 	__itt_Task_Stealing = __itt_string_handle_create("Task_Stealing");
-
+	__itt_SPSC_Enq = __itt_string_handle_create("SPSC_Enq");
+	__itt_SPSC_Deq = __itt_string_handle_create("SPSC_Deq");
+	__itt_SPSC_Enq_Blocking = __itt_string_handle_create("SPSC_Enq_Blocking");
+	__itt_SPSC_Deq_Blocking = __itt_string_handle_create("SPSC_Deq_Blocking");
 
 	//===-------- This slot is free for use by any thread ----------===//
 	for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {

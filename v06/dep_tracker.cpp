@@ -27,13 +27,16 @@ void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depe
 				}
 			}
 			else {
-				/// The new task become dependent on all previous readers
+				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dep_Reader);
+
 				for (int idxPos=0; idxPos<hashValue.second.size(); idxPos++) {
 					if (hashValue.second[idxPos] == idOfFinishedTask) {
 						hashValue.second.erase(hashValue.second.begin() + idxPos);
 						break;
 					}
 				}
+
+				__itt_task_end(__itt_mtsp_domain);
 			}
 
 			/// If that address does not have more producers/writers we remove it from the hash

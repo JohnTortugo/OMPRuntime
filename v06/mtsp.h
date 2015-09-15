@@ -109,6 +109,7 @@
 	/// Labels for itt-events representing periods where the dependence checker was checking/releasing dependences
 	extern __itt_string_handle* volatile __itt_Checking_Dependences;
 	extern __itt_string_handle* volatile __itt_Releasing_Dependences;
+	extern __itt_string_handle* volatile __itt_Releasing_Dep_Reader;
 
 	/// Labels for itt-events representing periods where the control thread was waiting in a taskwait barrier
 	extern __itt_string_handle* volatile __itt_CT_Barrier_Wait;
@@ -132,7 +133,12 @@
 	/// Label for itt-events representing periods where an thread stealing tasks
 	extern __itt_string_handle* volatile __itt_Task_Stealing;
 
+	/// Label for itt-events representing the blocking of a access to the spsc queue
+	extern __itt_string_handle* volatile __itt_SPSC_Enq_Blocking;
+	extern __itt_string_handle* volatile __itt_SPSC_Deq_Blocking;
 
+	extern __itt_string_handle* volatile __itt_SPSC_Enq;
+	extern __itt_string_handle* volatile __itt_SPSC_Deq;
 
 
 	//===-------- Locks used to control access to the variables above ----------===//

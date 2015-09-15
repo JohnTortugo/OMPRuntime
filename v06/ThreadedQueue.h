@@ -56,12 +56,18 @@ public:
 	}
 
 	void enq(T elem) {
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Enq);
+
 		int afterNextWrite = nextWrite + 1;
 			afterNextWrite &= (QUEUE_SIZE - 1);
 
 		if (afterNextWrite == localRead) {
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Enq_Blocking);
+
 			while (afterNextWrite == read) ;
 			localRead = read;
+
+			__itt_task_end(__itt_mtsp_domain);
 		}
 
 		elems[nextWrite] = elem;
@@ -70,6 +76,8 @@ public:
 
 		if ((nextWrite & (BATCH_SIZE-1)) == 0)
 			write = nextWrite;
+
+		__itt_task_end(__itt_mtsp_domain);
 	}
 
 	/// Returns true if we can enqueue at least one more item on the queue.
@@ -81,9 +89,15 @@ public:
 
 
 	T deq() {
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Deq);
+
 		if (nextRead == localWrite) {
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Deq_Blocking);
+
 			while (nextRead == write) ;
 			localWrite = write;
+
+			__itt_task_end(__itt_mtsp_domain);
 		}
 
 		T data	= elems[nextRead];
@@ -94,6 +108,7 @@ public:
 		if ((nextRead & (BATCH_SIZE-1)) == 0)
 			read = nextRead;
 
+		__itt_task_end(__itt_mtsp_domain);
 		return data;
 	}
 
