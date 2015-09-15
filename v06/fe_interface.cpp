@@ -126,13 +126,13 @@ void steal_from_single_run_queue(bool just_a_bit) {
 		if (just_a_bit) {
 			if (RunQueue.cur_load() < RunQueue.cont_load()) {
 				__itt_task_end(__itt_mtsp_domain);
-				break;
+				return;
 			}
 		}
 		else {
 			if (submissionQueue.cur_load() <= 0) {
 				__itt_task_end(__itt_mtsp_domain);
-				break;
+				return;
 			}
 		}
 
