@@ -83,29 +83,40 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 
 					/// The new task become dependent on all previous readers
 					for (auto& idReader : hashValue.second) {
-						dependents[idReader][0]++;
-						dependents[idReader][ dependents[idReader][0] ] = newTaskId;
+						/// If the new task does not already depends on the reader, it now becomes dependent
+						if (whoIDependOn[newTaskId][idReader] == false) {
+							whoIDependOn[newTaskId][idReader] = true;
+
+							dependents[idReader][0]++;
+							dependents[idReader][ dependents[idReader][0] ] = newTaskId;
 
 #ifdef DEBUG_MODE
-						if (dependents[idReader][0] >= MAX_DEPENDENTS) {
+							if (dependents[idReader][0] >= MAX_DEPENDENTS) {
+								printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
+								exit(-1);
+							}
+#endif
+						}
+					}
+				}
+				else {
+					kmp_uint32 lastWriterId = hashValue.first;
+
+					/// If the new task does not already depends on the writer, it now becomes dependent
+					if (whoIDependOn[newTaskId][lastWriterId] == false) {
+						whoIDependOn[newTaskId][lastWriterId] = true;
+
+						dependents[lastWriterId][0]++;
+						dependents[lastWriterId][ dependents[lastWriterId][0] ] = newTaskId;
+						depCounter++;
+
+#ifdef DEBUG_MODE
+						if (dependents[lastWriterId][0] >= MAX_DEPENDENTS) {
 							printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
 							exit(-1);
 						}
 #endif
 					}
-				}
-				else {
-					kmp_uint32 lastWriterId = hashValue.first;
-					dependents[lastWriterId][0]++;
-					dependents[lastWriterId][ dependents[lastWriterId][0] ] = newTaskId;
-					depCounter++;
-
-#ifdef DEBUG_MODE
-					if (dependents[lastWriterId][0] >= MAX_DEPENDENTS) {
-						printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
-						exit(-1);
-					}
-#endif
 				}
 
 				hashValue.first  = newTaskId;
@@ -118,15 +129,22 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 				///		- is always added to the set of last readers
 				if (hashValue.first != -1) {
 					kmp_uint32 lastWriterId = hashValue.first;
-					dependents[lastWriterId][0]++;
-					dependents[lastWriterId][ dependents[lastWriterId][0] ] = newTaskId;
-					depCounter++;
+
+					/// If the new task does not already depends on the writer, it now becomes dependent
+					if (whoIDependOn[newTaskId][lastWriterId] == false) {
+						whoIDependOn[newTaskId][lastWriterId] = true;
+
+						dependents[lastWriterId][0]++;
+						dependents[lastWriterId][ dependents[lastWriterId][0] ] = newTaskId;
+						depCounter++;
 #ifdef DEBUG_MODE
-					if (dependents[lastWriterId][0] >= MAX_DEPENDENTS) {
-						printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
-						exit(-1);
-					}
+						if (dependents[lastWriterId][0] >= MAX_DEPENDENTS) {
+							printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
+							__mtsp_dumpTaskGraphToDot();
+							exit(-1);
+						}
 #endif
+					}
 				}
 
 				hashValue.second.push_back(newTaskId);

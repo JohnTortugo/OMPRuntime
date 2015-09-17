@@ -14,7 +14,7 @@
 	//===----------------------------------------------------------------------===//
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
-//	#define DEBUG_MODE						1
+	#define DEBUG_MODE						1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserva a large space for task graph, submission queue, run queue, etc.
@@ -24,10 +24,10 @@
 //	#define	INTEL_NO_ITTNOFIFY_API			1
 
 	/// Uncomment if you want the CT to steal work
-	#define MTSP_WORKSTEALING_CT			1
+//	#define MTSP_WORKSTEALING_CT			1
 
 	/// Uncomment if you want the RT to steal work
-	#define MTSP_WORKSTEALING_RT			1
+//	#define MTSP_WORKSTEALING_RT			1
 
 	/// Uncomment if you want to see some statistics at the end of
 	#define MTSP_DUMP_STATS					1
@@ -53,7 +53,7 @@
 
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		         64
+	#define MAX_TASKS 					     		         16
 	#define MAX_DEPENDENTS						  	  MAX_TASKS
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
@@ -143,7 +143,6 @@
 
 	//===-------- Locks used to control access to the variables above ----------===//
 
-	/// Used to control acess the __mtsp_initialized
 	extern unsigned char volatile __mtsp_lock_initialized;
 
 
@@ -158,7 +157,7 @@
 	//
 	//===----------------------------------------------------------------------===//
 
-	int stick_this_thread_to_core(int core_id);
+	int stick_this_thread_to_core(const char* const pref, int core_id);
 
 	void __mtsp_initialize();
 
@@ -181,8 +180,8 @@
 	#define LOCKED					1
 	#define UNLOCKED				0
 
-	#define __MTSP_MAIN_THREAD_CORE__			0
-	#define __MTSP_RUNTIME_THREAD_CORE__		1
+	#define __MTSP_MAIN_THREAD_CORE__			2
+	#define __MTSP_RUNTIME_THREAD_CORE__		3
 
 
 

@@ -29,12 +29,12 @@ void* workerThreadCode(void* params) {
 	kmp_uint16 myId 		= *tasksIdent;
 	char taskName[100];
 
-	/// Stick this thread to execute on the "Core X"
-	stick_this_thread_to_core(*tasksIdent);
-
 	/// The thread that initialize the runtime is the Control Thread
 	sprintf(taskName, "WorkerThread-%02d", myId);
 	__itt_thread_set_name(taskName);
+
+	/// Stick this thread to execute on the "Core X"
+	stick_this_thread_to_core(taskName, *tasksIdent);
 
 	/// Counter for the number of threads
 	kmp_uint64 tasksExecuted = 0;
@@ -47,7 +47,9 @@ void* workerThreadCode(void* params) {
 		if (RunQueue.try_deq(&taskToExecute)) {
 			/// Start execution of the task
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+			 if (*tasksIdent == 0) __itt_frame_begin_v3(__itt_mtsp_domain, NULL);
 			(*(taskToExecute->routine))(0, taskToExecute);
+			if (*tasksIdent == 0) __itt_frame_end_v3(__itt_mtsp_domain, NULL);
 			__itt_task_end(__itt_mtsp_domain);
 
 			tasksExecuted++;

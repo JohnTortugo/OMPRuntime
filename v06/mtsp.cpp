@@ -60,23 +60,21 @@ __itt_string_handle* volatile __itt_SPSC_Deq_Blocking = nullptr;
 extern void steal_from_single_run_queue(bool just_a_bit);
 extern void steal_from_multiple_run_queue(bool just_a_bit);
 
-int stick_this_thread_to_core(int core_id) {
-//	int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-//
-//	printf("Going to core %d of %d\n", core_id, num_cores);
-//
-//	if (core_id >= num_cores)
-//		return -1;
-//
-//	cpu_set_t cpuset;
-//	CPU_ZERO(&cpuset);
-//	CPU_SET(core_id, &cpuset);
-//
-//	pthread_t current_thread = pthread_self();
-//
-//	pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
-//
-//	printf("Btw, I am executing on core %d\n", sched_getcpu());
+int stick_this_thread_to_core(const char* const pref, int core_id) {
+	int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+
+	if (core_id >= num_cores)
+		return -1;
+
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(core_id, &cpuset);
+
+	pthread_t current_thread = pthread_self();
+
+	pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+
+	printf("%s executing now on core %d\n", pref, sched_getcpu());
 
 	return 0;
 }
@@ -116,7 +114,7 @@ void __mtsp_initialize() {
 	}
 
 	/// This the original main thread to core-0
-	stick_this_thread_to_core(__MTSP_MAIN_THREAD_CORE__);
+	stick_this_thread_to_core("ControlThread", __MTSP_MAIN_THREAD_CORE__);
 
 	//===-------- Initialize the task graph manager ----------===//
 	__mtsp_initializeTaskGraph();
@@ -186,7 +184,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//
 	__itt_thread_set_name("MTSPRuntime");
 
-	stick_this_thread_to_core(__MTSP_RUNTIME_THREAD_CORE__);
+	stick_this_thread_to_core("RuntimeThread", __MTSP_RUNTIME_THREAD_CORE__);
 	kmp_task* task = nullptr;
 	kmp_uint64 iterations = 0;
 	kmp_uint64 BatchSize = (64 - 1);	// should be 2^N - 1

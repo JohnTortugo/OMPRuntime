@@ -16,8 +16,14 @@
 	/// Each position stores a pointer to a task descriptor for a task present in the task graph.
 	extern kmp_task* 			volatile 	tasks[MAX_TASKS];
 
+	// depCounters[i] tells on how many other tasks task 'i' depends on
 	extern kmp_uint16 			volatile	depCounters[MAX_TASKS];
+
+	// dependents[i][0] tells how many depends task 'i' has, these depends are listed on the subsequent dependents[i][1...]
 	extern kmp_uint16 			volatile	dependents[MAX_TASKS][MAX_DEPENDENTS+1];
+
+	// If a position whoIDependOn[i][j] is true then task 'i' depends on task 'j'
+	extern bool 				volatile	whoIDependOn[MAX_TASKS][MAX_DEPENDENTS+1];
 
 	/// This will store a list of free rows (slots) from the taskGraph matrix. The index zero (0)
 	/// is used as a counter for the number of free slots. The remaining positions store indices of

@@ -14,11 +14,12 @@
 #include "scheduler.h"
 #include "mtsp.h"
 
-bool 							taskGraphInitialized = false;
-kmp_task*			volatile	tasks[MAX_TASKS];
-kmp_uint16 			volatile	depCounters[MAX_TASKS];
-kmp_uint16 			volatile	dependents[MAX_TASKS][MAX_DEPENDENTS+1];
-kmp_uint16 			volatile	freeSlots[MAX_TASKS + 1];
+bool 					taskGraphInitialized = false;
+kmp_task*	volatile	tasks[MAX_TASKS];
+kmp_uint16 	volatile	depCounters[MAX_TASKS];
+kmp_uint16 	volatile	dependents[MAX_TASKS][MAX_DEPENDENTS+1];
+bool 		volatile	whoIDependOn[MAX_TASKS][MAX_DEPENDENTS+1];
+kmp_uint16 	volatile	freeSlots[MAX_TASKS + 1];
 
 std::string colorNames[] = {"red", "blue", "cyan", "magenta"};
 
@@ -117,6 +118,9 @@ void __mtsp_initializeTaskGraph() {
 
 		depCounters[i]		= 0;
 		dependents[i][0]	= 0;
+
+		for (int j=1; j<=MAX_TASKS; j++) 
+			whoIDependOn[i][j] = false;
 	}
 
 	freeSlots[0] 			= MAX_TASKS;
@@ -140,6 +144,10 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	for (int i=1; i<=sz; i++) {
 		int depId = dependents[idOfFinishedTask][i];
 		depCounters[depId]--;
+
+		// We reset the dependent status of the dependent task
+		// that is: depId no longer depends on idOfFinishedTask
+		whoIDependOn[depId][idOfFinishedTask] = false;
 
 		if (depCounters[depId] == 0) {
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
