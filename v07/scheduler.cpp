@@ -21,6 +21,18 @@ bool 			volatile __mtsp_activate_workers	= false;
 kmp_uint32		volatile __mtsp_numThreads			= 0;
 kmp_uint32		volatile __mtsp_numWorkerThreads	= 0;
 
+
+int executeCoalesced(int notUsed, void* param) {
+	//printf("Should execute some coalesced tasks now.\n");
+	kmp_task* coalescedTask = (kmp_task*) param;
+
+	for (int i=0; i<MTSP_COALESCING_SIZE; i++) {
+		kmp_task* taskToExecute = coalescedTask->metadata->coalesced[i];
+
+		(*(taskToExecute->routine))(0, taskToExecute);
+	}
+}
+
 void* workerThreadCode(void* params) {
 	kmp_task* taskToExecute = nullptr;
 

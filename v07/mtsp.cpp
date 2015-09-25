@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sched.h>
 #include <string.h>
+#include <map>
 
 #include "kmp.h"
 #include "mtsp.h"
@@ -253,6 +254,54 @@ void __mtsp_RuntimeWorkSteal() {
 	__itt_task_end(__itt_mtsp_domain);
 }
 
+
+void addCoalescedTask(kmp_task* coalescedTask) {
+
+	coalescedTask->routine = executeCoalesced;
+
+	std::map<kmp_intptr, kmp_depend_info*> deps;
+
+	for (int idx=0; idx<MTSP_COALESCING_SIZE; idx++) {
+		kmp_task* currTask = coalescedTask->metadata->coalesced[idx];
+
+		if (idx > 0) {
+			freeSlots[0]++;
+			freeSlots[ freeSlots[0] ] = currTask->metadata->taskgraph_slot_id;
+
+
+		}
+
+		for (int depIdx=0; depIdx<currTask->metadata->ndeps; depIdx++) {
+			kmp_depend_info* currDepInfo = &currTask->metadata->dep_list[depIdx];
+
+			/// First time we see that addr or not?
+			if (deps.find(currDepInfo->base_addr) == deps.end()) {
+				deps[currDepInfo->base_addr] = currDepInfo;
+			}
+			else {
+				deps[currDepInfo->base_addr]->flags.in |= currDepInfo->flags.in;
+				deps[currDepInfo->base_addr]->flags.out |= currDepInfo->flags.out;
+			}
+		}
+	}
+
+	/// Decrement the number of tasks in the system currently
+	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)(MTSP_COALESCING_SIZE - 1));
+
+	coalescedTask->metadata->taskgraph_slot_id = coalescedTask->metadata->coalesced[0]->metadata->taskgraph_slot_id;
+	coalescedTask->metadata->metadata_slot_id = -1;
+	coalescedTask->metadata->ndeps = deps.size();
+	coalescedTask->metadata->dep_list = (kmp_depend_info*) malloc(sizeof(kmp_depend_info) * deps.size()); 
+
+	int realIdx = 0;
+	for (auto& realDep : deps) {
+		coalescedTask->metadata->dep_list[realIdx] = *realDep.second;
+		realIdx++;
+	}
+
+	addToTaskGraph( coalescedTask );
+}
+
 void* __mtsp_RuntimeThreadCode(void* params) {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//
 	__itt_thread_set_name("MTSPRuntime");
@@ -267,6 +316,11 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 
 	/// Which core executed the task
 	unsigned int core = 0;
+
+	/// Used for task coalescing
+	int streakIdx = 0;
+	kmp_routine_entry prevRoutine = nullptr;
+	kmp_task* coalescedTask = nullptr;
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Main_Loop);
 	while (true) {
@@ -287,14 +341,66 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 
 		/// Check if there is any request for new thread creation
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Add);
-		if (freeSlots[0] > 0 && submissionQueue.try_deq(&task))
-			addToTaskGraph(task);
+		if (freeSlots[0] > 0 && submissionQueue.try_deq(&task)) {
+
+			task->metadata->taskgraph_slot_id = freeSlots[ freeSlots[0] ];
+			freeSlots[0]--;
+
+			/// Did we increased the streak?
+			if (task->routine == prevRoutine) {
+				/// Before anything save the task that we just got
+				coalescedTask->metadata->coalesced[streakIdx] = task;
+				streakIdx++;
+
+				/// Did we reach the maximum size of the coalescing? If yes, we create the
+				/// coalesced task and reset the coalescing size
+				if (streakIdx == MTSP_COALESCING_SIZE) {
+					/// create the coalesced task and add it to the task graph
+					addCoalescedTask(coalescedTask);
+
+					/// restart coalescing
+					streakIdx = 0;
+					coalescedTask = new kmp_task();
+					coalescedTask->metadata = new _mtsp_task_metadata();
+				}
+			}
+			else {
+				/// Okay, so a full coalescing was not possible. We are going to:
+				///		1. Add the tasks of the streak to the task graph.
+				///		2. Reset the coalescing using the new task
+
+				/// Add the pending tasks to the Task Graph
+				for (int idx=0; idx<streakIdx; idx++) 
+					addToTaskGraph( coalescedTask->metadata->coalesced[idx] );
+
+				/// start the new coalescing streak
+				coalescedTask = new kmp_task();
+				coalescedTask->metadata = new _mtsp_task_metadata();
+				coalescedTask->metadata->coalesced[0] = task;
+				streakIdx=1;
+				prevRoutine = task->routine;
+			}
+
+		}
 		__itt_task_end(__itt_mtsp_domain);
 
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Oth);
 		iterations++;
 		if ((iterations & BatchSize) == 0) {
 			submissionQueue.fsh();
+
+
+			if (__mtsp_threadWait) {
+				/// Add the pending tasks to the Task Graph
+				for (int idx=0; idx<streakIdx; idx++) 
+					addToTaskGraph( coalescedTask->metadata->coalesced[idx] );
+
+				/// start the new coalescing streak
+				coalescedTask = nullptr;
+				prevRoutine = nullptr;
+				streakIdx=0;
+			}
+
 #ifdef MTSP_WORKSTEALING_RT
 			if (RunQueue.cur_load() > __mtsp_numWorkerThreads) {		// may be we should consider the CT also
 				__mtsp_RuntimeWorkSteal();

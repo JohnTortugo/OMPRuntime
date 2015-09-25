@@ -75,16 +75,16 @@
 	#define MAX_DEPENDENTS						  	  MAX_TASKS
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-	#define SUBMISSION_QUEUE_SIZE			        16*MAX_TASKS
+	#define SUBMISSION_QUEUE_SIZE			        2*MAX_TASKS
 	#define SUBMISSION_QUEUE_BATCH_SIZE						  4
 	#define SUBMISSION_QUEUE_CF	  			   				 90
 
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-	#define RUN_QUEUE_SIZE							  MAX_TASKS
-	#define RUN_QUEUE_CF			    					 90
+	#define RUN_QUEUE_SIZE							  			  MAX_TASKS
+	#define RUN_QUEUE_CF			    					 			 90
 
-	#define RETIREMENT_QUEUE_SIZE					4*MAX_TASKS
+	#define RETIREMENT_QUEUE_SIZE								4*MAX_TASKS
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
 	/// larger than this will use a memory region returned by a call to std malloc.
@@ -199,6 +199,7 @@
 	void* __mtsp_RuntimeThreadCode(void* params);
 
 
+	extern int executeCoalesced(int notUsed, void* param);
 
 
 

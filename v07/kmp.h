@@ -15,9 +15,11 @@
 
 	/// NOTE: kmp_taskdata_t and kmp_task_t structures allocated in single block with taskdata first
 	/// These defines are remanescent from IRTL
-	#define KMP_TASK_TO_TASKDATA(task)     (((kmp_taskdata *) task) - 1)
-	#define KMP_TASKDATA_TO_TASK(taskdata) (kmp_task *) (taskdata + 1)
+	#define KMP_TASK_TO_TASKDATA(task)     		(((kmp_taskdata *) task) - 1)
+	#define KMP_TASKDATA_TO_TASK(taskdata) 		(kmp_task *) (taskdata + 1)
 
+
+	#define MTSP_COALESCING_SIZE				50
 
 
 
@@ -77,6 +79,8 @@
 		kmp_depend_info* dep_list;
 		kmp_uint32 globalTaskId;
 		kmp_uint64 taskSize;
+
+		struct _kmp_task* coalesced[MTSP_COALESCING_SIZE];
 	} mtsp_task_metadata;
 
 
