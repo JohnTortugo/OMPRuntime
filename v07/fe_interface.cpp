@@ -42,6 +42,9 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     }
 	RELEASE(&__mtsp_lock_initialized);
 
+	/// The size of the tasks is reset every time we enter a new parallel region
+   	taskSize.clear();
+
     /// Capture the parameters and add them to a void* array
     va_start(ap, microtask);
     for(i=0; i < argc; i++) { *argv++ = va_arg(ap, void *); }
@@ -146,7 +149,7 @@ void steal_from_single_run_queue(bool just_a_bit) {
 			}
 		}
 		else {
-			if (submissionQueue.cur_load() <= 0) {
+			if (RunQueue.cur_load() < RunQueue.cont_load() && submissionQueue.cur_load() <= 0) {
 				__itt_task_end(__itt_mtsp_domain);
 				return;
 			}
@@ -225,12 +228,16 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 #ifdef MTSP_DUMP_STATS
 	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
 	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
-#endif
+	printf("Addr of coalested_task is %x\n", executeCoalesced);
+	printf("Addr of runtime is %x\n", __mtsp_RuntimeThreadCode);
+	printf("Addr of coalescing is %x\n", addCoalescedTask);
 
-#ifdef MEASURE_TASK_SIZE
-	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
-		printf("%d %llu\n", lastPrintedTaskId, taskSizes[lastPrintedTaskId]);
+	for (auto& ts : taskSize) {
+		auto& val = ts.second;
+		std::cout << "Task " << std::hex << ts.first << " executed " << std::dec << val.first << " iteration(s) taking " << val.second << " cycles on average." << std::endl;
 	}
+
+	printf("\n\n\n");
 #endif
 
 	__itt_task_end(__itt_mtsp_domain);
@@ -291,9 +298,9 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 #endif
 
 #ifdef MEASURE_TASK_SIZE
-	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
-		printf("%d %llu\n", lastPrintedTaskId, taskSizes[lastPrintedTaskId]);
-	}
+//	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
+//		printf("%d %llu\n", lastPrintedTaskId, taskSizes[lastPrintedTaskId]);
+//	}
 #endif
 
 	__itt_task_end(__itt_mtsp_domain);

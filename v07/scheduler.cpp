@@ -23,13 +23,18 @@ kmp_uint32		volatile __mtsp_numWorkerThreads	= 0;
 
 
 int executeCoalesced(int notUsed, void* param) {
-	//printf("Should execute some coalesced tasks now.\n");
 	kmp_task* coalescedTask = (kmp_task*) param;
 
-	for (int i=0; i<MTSP_COALESCING_SIZE; i++) {
+	kmp_uint64 start, end;
+
+	for (int i=0; i<coalescedTask->metadata->coalesceSize; i++) {
 		kmp_task* taskToExecute = coalescedTask->metadata->coalesced[i];
 
+		start = beg_read_mtsp();
 		(*(taskToExecute->routine))(0, taskToExecute);
+		end = end_read_mtsp();
+
+		updateAverageTaskSize((kmp_uint64) taskToExecute->routine, end-start);
 	}
 }
 
@@ -62,24 +67,16 @@ void* workerThreadCode(void* params) {
 		if (RunQueue.try_deq(&taskToExecute)) {
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
 
-#ifdef MEASURE_TASK_SIZE
-			start = beg_read_mtsp();
-#endif
-
 			/// Start execution of the task
+			start = beg_read_mtsp();
 			(*(taskToExecute->routine))(0, taskToExecute);
-
-#ifdef MEASURE_TASK_SIZE
 			end = end_read_mtsp();
-#endif
 
 			__itt_task_end(__itt_mtsp_domain);
 
 			tasksExecuted++;
 
-#ifdef MEASURE_TASK_SIZE
 			taskToExecute->metadata->taskSize = (end - start);
-#endif
 
 			/// Inform that this task has finished execution
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);

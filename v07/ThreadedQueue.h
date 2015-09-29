@@ -94,6 +94,8 @@ public:
 		if (nextRead == localWrite) {
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Deq_Blocking);
 
+			//printf("Blocked, but Will not steal: cur_load = %d, cont_load = %d\n", cur_load(), cont_load());
+
 			while (nextRead == write) ;
 			localWrite = write;
 

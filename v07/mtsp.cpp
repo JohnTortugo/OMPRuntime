@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <sched.h>
@@ -27,11 +28,11 @@ unsigned char volatile __mtsp_lock_newTasksQueue = 0;
 /// Variables/constants related to the the taskMetadata buffer
 bool volatile __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
+std::map<kmp_uint64, std::pair<kmp_uint64, kmp_uint64>> taskSize;
+kmp_uint16 __curCoalesceSize = 0;
+kmp_uint16 __curTargetCoalescingSize = 0;
 
-#ifdef MEASURE_TASK_SIZE
-	std::vector<unsigned long long> taskSizes(MAXIMUM_EXPECTED_TASKS);
-	kmp_uint32 lastPrintedTaskId = 0;
-#endif
+
 
 
 
@@ -123,6 +124,19 @@ int stick_this_thread_to_core(const char* const pref, int core_id) {
 	return 0;
 }
 
+void updateAverageTaskSize(kmp_uint64 taskAddr, kmp_uint64 size) {
+	if (taskSize.find(taskAddr) == taskSize.end()) {
+		taskSize[taskAddr] = std::make_pair(1, size);
+	}
+	else {
+		auto oldPair = taskSize[taskAddr];
+
+		kmp_uint64 newMed = ((oldPair.second * oldPair.first) + size) / (oldPair.first + 1);
+
+		taskSize[taskAddr] = std::make_pair(oldPair.first+1, newMed);
+	}
+}
+
 void __mtsp_initialize() {
 	__itt_mtsp_domain = __itt_domain_create("MTSP");
 	__itt_CT_Fork_Call = __itt_string_handle_create("CT_Fork_Call");
@@ -179,7 +193,7 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 #ifdef MTSP_WORKSTEALING_CT
 	/// The CT is trying to submit work but the queue is full. The CT will then
 	/// spend some time executing tasks
-	if (submissionQueue.cur_load() > submissionQueue.cont_load()) {
+	if (submissionQueue.cur_load() >= submissionQueue.cont_load()) {
 		steal_from_single_run_queue(true);
 	}
 #endif
@@ -225,22 +239,16 @@ void __mtsp_RuntimeWorkSteal() {
 		if (RunQueue.try_deq(&taskToExecute)) {
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
 
-#ifdef MEASURE_TASK_SIZE
 			start = beg_read_mtsp();
-#endif
 
 			/// Start execution of the task
 			(*(taskToExecute->routine))(0, taskToExecute);
 
-#ifdef MEASURE_TASK_SIZE
 			end = end_read_mtsp();
-#endif
 
 			__itt_task_end(__itt_mtsp_domain);
 
-#ifdef MEASURE_TASK_SIZE
 			taskToExecute->metadata->taskSize = (end - start);
-#endif
 
 			tasksExecutedByRT++;
 
@@ -256,19 +264,23 @@ void __mtsp_RuntimeWorkSteal() {
 
 
 void addCoalescedTask(kmp_task* coalescedTask) {
+	/// Counter for the total cycles spent per task
+	unsigned long long start=0, end=0;
+
+	start = beg_read_mtsp();
+
 
 	coalescedTask->routine = executeCoalesced;
+	coalescedTask->metadata->coalesceSize = __curTargetCoalescingSize;
 
 	std::map<kmp_intptr, kmp_depend_info*> deps;
 
-	for (int idx=0; idx<MTSP_COALESCING_SIZE; idx++) {
+	for (int idx=0; idx<__curCoalesceSize; idx++) {
 		kmp_task* currTask = coalescedTask->metadata->coalesced[idx];
 
 		if (idx > 0) {
 			freeSlots[0]++;
 			freeSlots[ freeSlots[0] ] = currTask->metadata->taskgraph_slot_id;
-
-
 		}
 
 		for (int depIdx=0; depIdx<currTask->metadata->ndeps; depIdx++) {
@@ -286,7 +298,8 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	}
 
 	/// Decrement the number of tasks in the system currently
-	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)(MTSP_COALESCING_SIZE - 1));
+	printf("Going to subtract from ift [%d - %d]\n", __mtsp_inFlightTasks, (kmp_int32)(__curCoalesceSize-1));
+	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)(__curCoalesceSize - 1));
 
 	coalescedTask->metadata->taskgraph_slot_id = coalescedTask->metadata->coalesced[0]->metadata->taskgraph_slot_id;
 	coalescedTask->metadata->metadata_slot_id = -1;
@@ -299,7 +312,39 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 		realIdx++;
 	}
 
+	end = end_read_mtsp();
+
+	updateAverageTaskSize((kmp_uint64) addCoalescedTask, (end - start) / __curCoalesceSize);
+
 	addToTaskGraph( coalescedTask );
+}
+
+kmp_uint16 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
+	kmp_uint64 sti = taskSize[taskAddr].second;
+	kmp_uint64 m   = __mtsp_numThreads;		/// Includes the runtime and the control
+	kmp_uint64 ro  = 2 * taskSize[(kmp_uint64) __mtsp_RuntimeThreadCode].second; 	/// we double it because the stored value is average between add/del from TG
+	kmp_uint64 co  = 0;
+	
+	if (taskSize.find((kmp_uint64) addCoalescedTask) != taskSize.end()) {
+		co = taskSize[(kmp_uint64) addCoalescedTask].second;
+	}
+	else {
+		co = ro * 0.01;
+	}
+
+	kmp_uint64 n   = ceil( (m * ro) / (sti - m*co) );
+
+	if (n > MAX_COALESCING_SIZE) {
+		printf("CRITICAL: Would try to coalesce more than the allocated space (%llu). [sti=%llu, m=%llu, ro=%llu, co=%llu, n=%llu]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
+		exit(-1);
+	}
+	else if (n < MIN_SAMPLES_FOR_COALESCING) {
+		//printf("CRITICAL: The needed coalescing size is smaller than the minimum number of samples (%llu). [sti=%llu, m=%llu, ro=%llu, co=%llu, n=%llu]\n", MIN_SAMPLES_FOR_COALESCING, sti, m, ro, co, n);
+		return 0;
+		///exit(-1);
+	}
+
+	return n;
 }
 
 void* __mtsp_RuntimeThreadCode(void* params) {
@@ -311,94 +356,120 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	kmp_uint64 iterations = 0;
 	kmp_uint64 BatchSize = (64 - 1);	// should be 2^N - 1
 
-	/// Time the task took to execute
-	unsigned long long cycles = 0;
-
-	/// Which core executed the task
-	unsigned int core = 0;
-
 	/// Used for task coalescing
-	int streakIdx = 0;
+	__curCoalesceSize = 0;
+	__curTargetCoalescingSize = 0;
 	kmp_routine_entry prevRoutine = nullptr;
 	kmp_task* coalescedTask = nullptr;
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Main_Loop);
 	while (true) {
+
+
+		/// -------------------------------------------------------------------------------
 		/// Check if the execution of a task has been completed
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Del);
 		if (RetirementQueue.try_deq(&task)) {
 			removeFromTaskGraph(task);
 
-#ifdef MEASURE_TASK_SIZE
-			if (task->metadata->globalTaskId >= MAXIMUM_EXPECTED_TASKS) {
-				printf("Critical: Maximum_expected_tasks reached at %s:%d\n", __FILE__, __LINE__);
-				exit(-1);
-			}
-			taskSizes[task->metadata->globalTaskId] = task->metadata->taskSize;
-#endif
+			updateAverageTaskSize((kmp_uint64) task->routine, task->metadata->taskSize);
 		}
 		__itt_task_end(__itt_mtsp_domain);
 
+
+
+		/// -------------------------------------------------------------------------------
 		/// Check if there is any request for new thread creation
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Add);
 		if (freeSlots[0] > 0 && submissionQueue.try_deq(&task)) {
-
+			/// Obtain an ID for the new task
 			task->metadata->taskgraph_slot_id = freeSlots[ freeSlots[0] ];
 			freeSlots[0]--;
+
+			kmp_uint64 taskAddr = (kmp_uint64) task->routine;
+
 
 			/// Did we increased the streak?
 			if (task->routine == prevRoutine) {
 				/// Before anything save the task that we just got
-				coalescedTask->metadata->coalesced[streakIdx] = task;
-				streakIdx++;
+				coalescedTask->metadata->coalesced[__curCoalesceSize] = task;
+				__curCoalesceSize ++;
 
 				/// Did we reach the maximum size of the coalescing? If yes, we create the
 				/// coalesced task and reset the coalescing size
-				if (streakIdx == MTSP_COALESCING_SIZE) {
+				if (__curCoalesceSize >= __curTargetCoalescingSize) {
 					/// create the coalesced task and add it to the task graph
 					addCoalescedTask(coalescedTask);
 
 					/// restart coalescing
-					streakIdx = 0;
+					__curCoalesceSize = 0;
 					coalescedTask = new kmp_task();
 					coalescedTask->metadata = new _mtsp_task_metadata();
 				}
 			}
 			else {
-				/// Okay, so a full coalescing was not possible. We are going to:
-				///		1. Add the tasks of the streak to the task graph.
-				///		2. Reset the coalescing using the new task
+				/// The code enter heres the first time that we start to coalesce, because
+				/// prevRoutine == nullptr and task->routine is != nullptr.
+				/// 
+				/// The program also enters here when we need to start a new streak.
+
 
 				/// Add the pending tasks to the Task Graph
-				for (int idx=0; idx<streakIdx; idx++) 
+				for (int idx=0; idx<__curCoalesceSize ; idx++) 
 					addToTaskGraph( coalescedTask->metadata->coalesced[idx] );
 
-				/// start the new coalescing streak
-				coalescedTask = new kmp_task();
-				coalescedTask->metadata = new _mtsp_task_metadata();
-				coalescedTask->metadata->coalesced[0] = task;
-				streakIdx=1;
-				prevRoutine = task->routine;
+
+				/// If we did not execute this kind of task a sufficient number of times to
+				/// determine an average size -> do not try any coalescing.
+				if (taskSize.find(taskAddr) == taskSize.end() || taskSize[taskAddr].first < MIN_SAMPLES_FOR_COALESCING) {
+					addToTaskGraph( task );
+					__curCoalesceSize = 0;
+					prevRoutine = nullptr;
+				}
+				else {
+					/// Ok, so we have sufficient information. If we are just starting a coalesce
+					/// we need to determine the targetCoalesceSize.
+					__curTargetCoalescingSize = howManyShouldBeCoalesced(taskAddr);
+
+					if (__curTargetCoalescingSize <= 0) {
+						addToTaskGraph( task );
+						coalescedTask = nullptr;
+						prevRoutine = nullptr;
+						__curCoalesceSize = 0;
+					}
+					else {
+						/// start the new coalescing streak
+						coalescedTask = new kmp_task();
+						coalescedTask->metadata = new _mtsp_task_metadata();
+						coalescedTask->metadata->coalesced[0] = task;
+						__curCoalesceSize = 1;
+						prevRoutine = task->routine;
+					}
+				}
 			}
 
 		}
 		__itt_task_end(__itt_mtsp_domain);
 
+
+
+
+		/// -------------------------------------------------------------------------------
+		/// Execute other "infrequent" bookkeeping tasks
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Oth);
 		iterations++;
 		if ((iterations & BatchSize) == 0) {
 			submissionQueue.fsh();
 
-
 			if (__mtsp_threadWait) {
 				/// Add the pending tasks to the Task Graph
-				for (int idx=0; idx<streakIdx; idx++) 
+				for (int idx=0; idx<__curCoalesceSize ; idx++) 
 					addToTaskGraph( coalescedTask->metadata->coalesced[idx] );
 
 				/// start the new coalescing streak
 				coalescedTask = nullptr;
 				prevRoutine = nullptr;
-				streakIdx=0;
+				__curCoalesceSize =0;
 			}
 
 #ifdef MTSP_WORKSTEALING_RT

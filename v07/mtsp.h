@@ -6,6 +6,9 @@
 
 	#include <pthread.h>
 	#include <vector>
+	#include <map>
+	#include <utility>
+	#include <iostream>
 
 
 	//===----------------------------------------------------------------------===//
@@ -13,14 +16,6 @@
 	// Start of MTSP configuration directives
 	//
 	//===----------------------------------------------------------------------===//
-
-	/// This is used to tell the system (scheduler and fe_interface) to collect the
-	/// time that each task took to execute and dump it to a file.
-	///
-	/// A vector of MAXIMUM_EXPECTED_TASKS will be created for storing the size of
-	/// each task.
-//	#define MEASURE_TASK_SIZE				1
-//	#define MAXIMUM_EXPECTED_TASKS			500000
 
 	/// This is used to tell the "fe_interface.cpp" to dump the sequence of task types
 	///  that were entered in the submission queue
@@ -77,12 +72,12 @@
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
 	#define SUBMISSION_QUEUE_SIZE			        2*MAX_TASKS
 	#define SUBMISSION_QUEUE_BATCH_SIZE						  4
-	#define SUBMISSION_QUEUE_CF	  			   				 90
+	#define SUBMISSION_QUEUE_CF	  			   				 50
 
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
 	#define RUN_QUEUE_SIZE							  			  MAX_TASKS
-	#define RUN_QUEUE_CF			    					 			 90
+	#define RUN_QUEUE_CF			    					 			 50
 
 	#define RETIREMENT_QUEUE_SIZE								4*MAX_TASKS
 
@@ -94,10 +89,9 @@
 	/// Memory region from where new tasks metadata will be allocated.
 	extern volatile bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 	extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
-
-#ifdef MEASURE_TASK_SIZE
-	extern std::vector<unsigned long long> taskSizes;
-#endif
+	extern std::map<kmp_uint64, std::pair<kmp_uint64, kmp_uint64>> taskSize;
+	extern kmp_uint16 __curCoalesceSize;
+	extern kmp_uint16 __curTargetCoalescingSize;
 
 
 
@@ -198,10 +192,11 @@
 
 	void* __mtsp_RuntimeThreadCode(void* params);
 
+	void updateAverageTaskSize(kmp_uint64 taskAddr, kmp_uint64 size);
 
 	extern int executeCoalesced(int notUsed, void* param);
 
-
+	void addCoalescedTask(kmp_task* coalescedTask);
 
 
 

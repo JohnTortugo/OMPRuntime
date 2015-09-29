@@ -135,6 +135,11 @@ void __mtsp_initializeTaskGraph() {
 void removeFromTaskGraph(kmp_task* finishedTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
 
+	/// Counter for the total cycles spent per task
+	unsigned long long start=0, end=0;
+
+	start = beg_read_mtsp();
+
 	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
 
 	/// Decrement the number of tasks in the system currently
@@ -173,6 +178,10 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	freeSlots[0]++;
 	freeSlots[freeSlots[0]] = idOfFinishedTask;
 
+	end = end_read_mtsp();
+
+	updateAverageTaskSize((kmp_uint64) __mtsp_RuntimeThreadCode, end - start);
+
 	__itt_task_end(__itt_mtsp_domain);
 }
 
@@ -181,19 +190,19 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 void addToTaskGraph(kmp_task* newTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Add);
 
+	/// Counter for the total cycles spent per task
+	unsigned long long start=0, end=0;
+
+	start = beg_read_mtsp();
+
 	kmp_uint32 ndeps = newTask->metadata->ndeps;
 	kmp_depend_info* depList = newTask->metadata->dep_list;
 
 	/// Obtain id for the new task
 	kmp_uint16 newTaskId = newTask->metadata->taskgraph_slot_id; 
-	//freeSlots[ freeSlots[0] ];
-	//freeSlots[0]--;
 
 	/// depPattern stores a bit pattern representing the dependences of the new task
 	kmp_uint64 depCounter = checkAndUpdateDependencies(newTaskId, ndeps, depList);
-
-	/// Store the task_id of this task
-	/// newTask->metadata->taskgraph_slot_id = newTaskId;
 
 	/// stores the new task dependence pattern
 	depCounters[newTaskId] = depCounter;
@@ -208,6 +217,10 @@ void addToTaskGraph(kmp_task* newTask) {
 		RunQueue.enq( newTask );
 		__itt_task_end(__itt_mtsp_domain);
 	}
+
+	end = end_read_mtsp();
+
+	updateAverageTaskSize((kmp_uint64) __mtsp_RuntimeThreadCode, end - start);
 
 	__itt_task_end(__itt_mtsp_domain);
 }

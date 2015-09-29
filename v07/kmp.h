@@ -19,7 +19,8 @@
 	#define KMP_TASKDATA_TO_TASK(taskdata) 		(kmp_task *) (taskdata + 1)
 
 
-	#define MTSP_COALESCING_SIZE				50
+	#define MAX_COALESCING_SIZE					100
+	#define MIN_SAMPLES_FOR_COALESCING			 5
 
 
 
@@ -79,8 +80,9 @@
 		kmp_depend_info* dep_list;
 		kmp_uint32 globalTaskId;
 		kmp_uint64 taskSize;
+		kmp_uint64 coalesceSize;
 
-		struct _kmp_task* coalesced[MTSP_COALESCING_SIZE];
+		struct _kmp_task* coalesced[MAX_COALESCING_SIZE];
 	} mtsp_task_metadata;
 
 
