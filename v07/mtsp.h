@@ -32,10 +32,10 @@
 //	#define	INTEL_NO_ITTNOFIFY_API			1
 
 	/// Uncomment if you want the CT to steal work
-//	#define MTSP_WORKSTEALING_CT			1
+	#define MTSP_WORKSTEALING_CT			1
 
 	/// Uncomment if you want the RT to steal work
-//	#define MTSP_WORKSTEALING_RT			1
+	#define MTSP_WORKSTEALING_RT			1
 
 	/// Uncomment if you want to see some statistics at the end of
 	#define MTSP_DUMP_STATS					1
@@ -90,8 +90,8 @@
 	extern volatile bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 	extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 	extern std::map<kmp_uint64, std::pair<kmp_uint64, kmp_uint64>> taskSize;
-	extern kmp_uint16 __curCoalesceSize;
-	extern kmp_uint16 __curTargetCoalescingSize;
+	extern kmp_int16 __curCoalesceSize;
+	extern kmp_int16 __curTargetCoalescingSize;
 
 
 

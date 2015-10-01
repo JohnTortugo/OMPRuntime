@@ -29,8 +29,8 @@ unsigned char volatile __mtsp_lock_newTasksQueue = 0;
 bool volatile __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 std::map<kmp_uint64, std::pair<kmp_uint64, kmp_uint64>> taskSize;
-kmp_uint16 __curCoalesceSize = 0;
-kmp_uint16 __curTargetCoalescingSize = 0;
+kmp_int16 __curCoalesceSize = 0;
+kmp_int16 __curTargetCoalescingSize = 0;
 
 
 
@@ -298,7 +298,6 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	}
 
 	/// Decrement the number of tasks in the system currently
-	printf("Going to subtract from ift [%d - %d]\n", __mtsp_inFlightTasks, (kmp_int32)(__curCoalesceSize-1));
 	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)(__curCoalesceSize - 1));
 
 	coalescedTask->metadata->taskgraph_slot_id = coalescedTask->metadata->coalesced[0]->metadata->taskgraph_slot_id;
@@ -319,11 +318,12 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	addToTaskGraph( coalescedTask );
 }
 
-kmp_uint16 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-	kmp_uint64 sti = taskSize[taskAddr].second;
-	kmp_uint64 m   = __mtsp_numThreads;		/// Includes the runtime and the control
-	kmp_uint64 ro  = 2 * taskSize[(kmp_uint64) __mtsp_RuntimeThreadCode].second; 	/// we double it because the stored value is average between add/del from TG
-	kmp_uint64 co  = 0;
+kmp_int16 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
+//	return 10;
+	kmp_int64 sti = taskSize[taskAddr].second;
+	kmp_int64 m   = __mtsp_numThreads;												/// Includes the runtime and the control
+	kmp_int64 ro  = 2 * taskSize[(kmp_uint64) __mtsp_RuntimeThreadCode].second; 	/// we double it because the stored value is average between add/del from TG
+	kmp_int64 co  = 0;
 	
 	if (taskSize.find((kmp_uint64) addCoalescedTask) != taskSize.end()) {
 		co = taskSize[(kmp_uint64) addCoalescedTask].second;
@@ -332,19 +332,22 @@ kmp_uint16 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
 		co = ro * 0.01;
 	}
 
-	kmp_uint64 n   = ceil( (m * ro) / (sti - m*co) );
+	kmp_int64 n = (m * ro) / (sti - m*co);
 
-	if (n > MAX_COALESCING_SIZE) {
-		printf("CRITICAL: Would try to coalesce more than the allocated space (%llu). [sti=%llu, m=%llu, ro=%llu, co=%llu, n=%llu]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
-		exit(-1);
+	if (n < 0) {
+		printf("Impossible to amortize (%lld). [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", MIN_SAMPLES_FOR_COALESCING, sti, m, ro, co, n);
+		return 0;
 	}
 	else if (n < MIN_SAMPLES_FOR_COALESCING) {
-		//printf("CRITICAL: The needed coalescing size is smaller than the minimum number of samples (%llu). [sti=%llu, m=%llu, ro=%llu, co=%llu, n=%llu]\n", MIN_SAMPLES_FOR_COALESCING, sti, m, ro, co, n);
+		//printf("No need for coalescing. [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", sti, m, ro, co, n);
 		return 0;
-		///exit(-1);
+	}
+	else if (n > MAX_COALESCING_SIZE) {
+		printf("CRITICAL: Would try to coalesce more than the allocated space (%lld). [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
+		exit(-1);
 	}
 
-	return n;
+	return ceil(n);
 }
 
 void* __mtsp_RuntimeThreadCode(void* params) {
@@ -370,9 +373,9 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		/// Check if the execution of a task has been completed
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Del);
 		if (RetirementQueue.try_deq(&task)) {
-			removeFromTaskGraph(task);
-
 			updateAverageTaskSize((kmp_uint64) task->routine, task->metadata->taskSize);
+
+			removeFromTaskGraph(task);
 		}
 		__itt_task_end(__itt_mtsp_domain);
 
@@ -431,7 +434,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 					/// we need to determine the targetCoalesceSize.
 					__curTargetCoalescingSize = howManyShouldBeCoalesced(taskAddr);
 
-					if (__curTargetCoalescingSize <= 0) {
+					if (__curTargetCoalescingSize == 0) {
 						addToTaskGraph( task );
 						coalescedTask = nullptr;
 						prevRoutine = nullptr;

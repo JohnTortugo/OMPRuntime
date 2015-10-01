@@ -159,22 +159,16 @@ void steal_from_single_run_queue(bool just_a_bit) {
 
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
 
-#ifdef MEASURE_TASK_SIZE
 			start = beg_read_mtsp();
-#endif
 
 			/// Start execution of the task
 			(*(taskToExecute->routine))(0, taskToExecute);
 
-#ifdef MEASURE_TASK_SIZE
 			end = end_read_mtsp();
-#endif
 
 			__itt_task_end(__itt_mtsp_domain);
 
-#ifdef MEASURE_TASK_SIZE
 			taskToExecute->metadata->taskSize = (end - start);
-#endif
 
 			tasksExecutedByCT++;
 
