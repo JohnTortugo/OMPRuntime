@@ -7,5 +7,7 @@ The differences of this version for version 0.3 are:
 		The control thread may steal work from the worker threads.
 			When it reachers a taskwait 
 			When the submission queue is almost full
-	
+
+		The runtime steal tasks.
+
 	These options are all configurable.	

@@ -22,7 +22,7 @@
 //	#define SUBQUEUE_PATTERN				1	
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
-//	#define DEBUG_MODE						1
+	#define DEBUG_MODE						1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.
@@ -32,10 +32,10 @@
 //	#define	INTEL_NO_ITTNOFIFY_API			1
 
 	/// Uncomment if you want the CT to steal work
-	#define MTSP_WORKSTEALING_CT			1
+//	#define MTSP_WORKSTEALING_CT			1
 
 	/// Uncomment if you want the RT to steal work
-	#define MTSP_WORKSTEALING_RT			1
+//	#define MTSP_WORKSTEALING_RT			1
 
 	/// Uncomment if you want to see some statistics at the end of
 	#define MTSP_DUMP_STATS					1
@@ -83,7 +83,7 @@
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
 	/// larger than this will use a memory region returned by a call to std malloc.
-	#define TASK_METADATA_MAX_SIZE  									768
+	#define TASK_METADATA_MAX_SIZE  								   1024
 	#define MAX_TASKMETADATA_SLOTS 		(MAX_TASKS + SUBMISSION_QUEUE_SIZE)
 
 	/// Memory region from where new tasks metadata will be allocated.

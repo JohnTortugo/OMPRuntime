@@ -8,7 +8,7 @@
 
 
 	/// Maps from memory address to a pair<IdOfLastTaskAccessingIt, vector of ID of readers>
-	extern std::map<kmp_intptr, std::pair<kmp_int32, std::vector<kmp_uint32>>> dependenceTable;
+	extern std::map<kmp_intptr, std::pair<kmp_int32, std::vector<kmp_int32>>> dependenceTable;
 
 
 
@@ -19,7 +19,7 @@
 	//===----------------------------------------------------------------------===//
 
 
-	void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depend_info* depList);
+	void releaseDependencies(kmp_int16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depend_info* depList);
 
 	kmp_uint64 checkAndUpdateDependencies(kmp_uint16 taskId, kmp_uint32 ndeps, kmp_depend_info* depList);
 

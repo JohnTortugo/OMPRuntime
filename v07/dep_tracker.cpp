@@ -1,37 +1,35 @@
 #include "dep_tracker.h"
 #include "task_graph.h"
+#include <utility>
 
 
-std::map<kmp_intptr, std::pair<kmp_int32, std::vector<kmp_uint32>>> dependenceTable;
+std::map<kmp_intptr, std::pair<kmp_int32, std::vector<kmp_int32>>> dependenceTable;
 
 
-void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
+void releaseDependencies(kmp_int16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dependences);
 
 	/// Iterate over each dependence and check if the task ID of the last task accessing that address
 	/// is the ID of the finished task. If it is remove that entry, otherwise do nothing.
 	for (kmp_uint32 depIdx=0; depIdx<ndeps; depIdx++) {
 		auto baseAddr 	= depList[depIdx].base_addr;
-		auto hashEntry	= dependenceTable.find(baseAddr);
 
 		/// Is someone already accessing this address?
-		if (hashEntry != dependenceTable.end()) {
-			auto hashValue = hashEntry->second;
-
+		if (dependenceTable.find(baseAddr) != dependenceTable.end()) {
 			/// If the finished task was a writer we check to see if it is still the last writer
 			///		if yes we clear the first field. If not we do nothing yet.
 			/// If the finished task was a reader we disable that bit in the second field.
 			if (depList[depIdx].flags.out) {
-				if (hashValue.first == idOfFinishedTask) {
-					hashValue.first = -1;
+				if (dependenceTable[baseAddr].first == idOfFinishedTask) {
+					dependenceTable[baseAddr].first = -1;
 				}
 			}
 			else {
 				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dep_Reader);
 
-				for (int idxPos=0; idxPos<hashValue.second.size(); idxPos++) {
-					if (hashValue.second[idxPos] == idOfFinishedTask) {
-						hashValue.second.erase(hashValue.second.begin() + idxPos);
+				for (int idxPos=0; idxPos<dependenceTable[baseAddr].second.size(); idxPos++) {
+					if (dependenceTable[baseAddr].second[idxPos] == idOfFinishedTask) {
+						dependenceTable[baseAddr].second.erase( dependenceTable[baseAddr].second.begin() + idxPos);
 						break;
 					}
 				}
@@ -41,10 +39,9 @@ void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depe
 
 			/// If that address does not have more producers/writers we remove it from the hash
 			/// otherwise we just save the updated information
-			if (hashValue.first == -1 && hashValue.second.size() == 0)
-				dependenceTable.erase(hashEntry);
-			else
-				dependenceTable[baseAddr] = hashValue;
+			if (dependenceTable[baseAddr].first == -1 && dependenceTable[baseAddr].second.size() == 0) {
+				dependenceTable.erase(baseAddr);
+			}
 		}
 	}
 
@@ -64,7 +61,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 		bool isOutput	= depList[depIdx].flags.out;
 
 		/// <ID_OF_LAST_WRITER, IDS_OF_CURRENT_READERS>
-		std::pair<kmp_uint32, std::vector<kmp_uint32>> hashValue;
+		std::pair<kmp_int32, std::vector<kmp_int32>> hashValue;
 
 		/// Is someone already accessing this address?
 		if (hashEntry != dependenceTable.end()) {
@@ -79,13 +76,12 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 			///		reset the readers from the last writing
 			if (isOutput) {
 				if (hashValue.second.size() != 0) {
-					depCounter += hashValue.second.size();
-
 					/// The new task become dependent on all previous readers
 					for (auto& idReader : hashValue.second) {
 						/// If the new task does not already depends on the reader, it now becomes dependent
 						if (whoIDependOn[newTaskId][idReader] == false) {
 							whoIDependOn[newTaskId][idReader] = true;
+							depCounter++;
 
 							dependents[idReader][0]++;
 							dependents[idReader][ dependents[idReader][0] ] = newTaskId;
@@ -100,7 +96,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					}
 				}
 				else {
-					kmp_uint32 lastWriterId = hashValue.first;
+					kmp_int32 lastWriterId = hashValue.first;
 
 					/// If the new task does not already depends on the writer, it now becomes dependent
 					if (whoIDependOn[newTaskId][lastWriterId] == false) {
@@ -128,7 +124,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 				///		-		if not, the new task does not have dependences
 				///		- is always added to the set of last readers
 				if (hashValue.first != -1) {
-					kmp_uint32 lastWriterId = hashValue.first;
+					kmp_int32 lastWriterId = hashValue.first;
 
 					/// If the new task does not already depends on the writer, it now becomes dependent
 					if (whoIDependOn[newTaskId][lastWriterId] == false) {

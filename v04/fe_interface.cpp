@@ -13,6 +13,7 @@
 #include "fe_interface.h"
 
 kmp_uint64 tasksExecutedByCT = 0;
+volatile kmp_uint64 tasksExecutedByRT = 0;
 
 SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
 
@@ -257,7 +258,8 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	while (__mtsp_threadWaitCounter != 0);
 
 #ifdef MTSP_DUMP_STATS
-	printf("%llu tasks were executed by the control thread.\n\n", tasksExecutedByCT);
+	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
+	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
 #endif
 
 	__itt_task_end(__itt_mtsp_domain);
@@ -306,6 +308,12 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	/// Before we continue we need to make sure that all threads have "seen" the previous
 	/// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
+
+
+#ifdef MTSP_DUMP_STATS
+	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
+	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
+#endif
 
 	__itt_task_end(__itt_mtsp_domain);
 	RELEASE(&__mtsp_Single);

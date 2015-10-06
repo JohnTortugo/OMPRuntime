@@ -105,6 +105,24 @@ unsigned long long end_read_mtsp() {
 }
 
 
+void debug() {
+	std::cout << std::endl;
+	std::cout << "------------------ DEBUG ---------- DEBUG ------- DEBUG ----------" << std::endl;
+	std::cout << "__mtsp_numThreads;              => " << __mtsp_numThreads << std::endl;
+	std::cout << "__mtsp_numWorkerThreads;        => " << __mtsp_numWorkerThreads << std::endl;
+	std::cout << "__mtsp_inFlightTasks            => " << __mtsp_inFlightTasks << std::endl;
+	std::cout << "__mtsp_threadWait               => " << __mtsp_threadWait << std::endl;
+	std::cout << "__mtsp_threadWaitCounter        => " << __mtsp_threadWaitCounter<< std::endl;
+	std::cout << "__curCoalesceSize               => " << __curCoalesceSize << std::endl;
+	std::cout << "__curTargetCoalescingSize       => " << __curTargetCoalescingSize << std::endl;
+	std::cout << "freeSlots[0]                    => " << freeSlots[0] << std::endl;
+	std::cout << "submissionQueue.cur_load        => " << submissionQueue.cur_load() << std::endl;
+	std::cout << "RunQueue.cur_load               => " << RunQueue.cur_load() << std::endl;
+	std::cout << "RetirementQueue.cur_load        => " << RetirementQueue.cur_load() << std::endl;
+	std::cout << "------------------------------------------------------------------" << std::endl;
+}
+
+
 int stick_this_thread_to_core(const char* const pref, int core_id) {
 //	int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
 //
@@ -125,6 +143,11 @@ int stick_this_thread_to_core(const char* const pref, int core_id) {
 }
 
 void updateAverageTaskSize(kmp_uint64 taskAddr, kmp_uint64 size) {
+	if (taskAddr == (kmp_uint64) addToTaskGraph) {
+		printf("Cost of addToTaskGraph = %llu\n", size);
+	}
+
+
 	if (taskSize.find(taskAddr) == taskSize.end()) {
 		taskSize[taskAddr] = std::make_pair(1, size);
 	}
@@ -269,9 +292,8 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 
 	start = beg_read_mtsp();
 
-
 	coalescedTask->routine = executeCoalesced;
-	coalescedTask->metadata->coalesceSize = __curTargetCoalescingSize;
+	coalescedTask->metadata->coalesceSize = __curCoalesceSize;
 
 	std::map<kmp_intptr, kmp_depend_info*> deps;
 
@@ -279,8 +301,14 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 		kmp_task* currTask = coalescedTask->metadata->coalesced[idx];
 
 		if (idx > 0) {
+			/// Decrement the number of tasks in the system currently
+			ATOMIC_SUB(&__mtsp_inFlightTasks, 1);
+
 			freeSlots[0]++;
 			freeSlots[ freeSlots[0] ] = currTask->metadata->taskgraph_slot_id;
+
+			if (currTask->metadata->metadata_slot_id >= 0)
+				__mtsp_taskMetadataStatus[currTask->metadata->metadata_slot_id] = false;
 		}
 
 		for (int depIdx=0; depIdx<currTask->metadata->ndeps; depIdx++) {
@@ -297,11 +325,8 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 		}
 	}
 
-	/// Decrement the number of tasks in the system currently
-	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)(__curCoalesceSize - 1));
-
 	coalescedTask->metadata->taskgraph_slot_id = coalescedTask->metadata->coalesced[0]->metadata->taskgraph_slot_id;
-	coalescedTask->metadata->metadata_slot_id = -1;
+	coalescedTask->metadata->metadata_slot_id = coalescedTask->metadata->metadata_slot_id;
 	coalescedTask->metadata->ndeps = deps.size();
 	coalescedTask->metadata->dep_list = (kmp_depend_info*) malloc(sizeof(kmp_depend_info) * deps.size()); 
 
@@ -319,7 +344,6 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 }
 
 kmp_int16 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-//	return 10;
 	kmp_int64 sti = taskSize[taskAddr].second;
 	kmp_int64 m   = __mtsp_numThreads;												/// Includes the runtime and the control
 	kmp_int64 ro  = 2 * taskSize[(kmp_uint64) __mtsp_RuntimeThreadCode].second; 	/// we double it because the stored value is average between add/del from TG
@@ -332,19 +356,31 @@ kmp_int16 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
 		co = ro * 0.01;
 	}
 
+
+	kmp_int64 num = (m * ro);
+	kmp_int64 den = (sti - m*co);
+
+	if (num == 0 || den == 0) return 0;
+
 	kmp_int64 n = (m * ro) / (sti - m*co);
 
 	if (n < 0) {
+#ifdef DEBUG_MODE
 		printf("Impossible to amortize (%lld). [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", MIN_SAMPLES_FOR_COALESCING, sti, m, ro, co, n);
-		return 0;
+#endif
+		return MAX_COALESCING_SIZE;
 	}
 	else if (n < MIN_SAMPLES_FOR_COALESCING) {
-		//printf("No need for coalescing. [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", sti, m, ro, co, n);
+#ifdef DEBUG_MODE
+		printf("No need for coalescing. [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", sti, m, ro, co, n);
+#endif
 		return 0;
 	}
 	else if (n > MAX_COALESCING_SIZE) {
-		printf("CRITICAL: Would try to coalesce more than the allocated space (%lld). [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
-		exit(-1);
+#ifdef DEBUG_MODE
+		printf("CRITICAL: Need to coalesce more than the allocated space (%lld). [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
+#endif
+		return MAX_COALESCING_SIZE;
 	}
 
 	return ceil(n);
@@ -391,7 +427,6 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 
 			kmp_uint64 taskAddr = (kmp_uint64) task->routine;
 
-
 			/// Did we increased the streak?
 			if (task->routine == prevRoutine) {
 				/// Before anything save the task that we just got
@@ -418,15 +453,20 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 
 
 				/// Add the pending tasks to the Task Graph
-				for (int idx=0; idx<__curCoalesceSize ; idx++) 
-					addToTaskGraph( coalescedTask->metadata->coalesced[idx] );
+				if (__curCoalesceSize > 0) {
+					/// create the coalesced task and add it to the task graph
+					addCoalescedTask(coalescedTask);
 
+					/// restart coalescing
+					__curCoalesceSize = 0;
+					coalescedTask = new kmp_task();
+					coalescedTask->metadata = new _mtsp_task_metadata();
+				}
 
 				/// If we did not execute this kind of task a sufficient number of times to
 				/// determine an average size -> do not try any coalescing.
 				if (taskSize.find(taskAddr) == taskSize.end() || taskSize[taskAddr].first < MIN_SAMPLES_FOR_COALESCING) {
 					addToTaskGraph( task );
-					__curCoalesceSize = 0;
 					prevRoutine = nullptr;
 				}
 				else {
@@ -439,6 +479,8 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 						coalescedTask = nullptr;
 						prevRoutine = nullptr;
 						__curCoalesceSize = 0;
+
+						//__mtsp_dumpTaskGraphToDot();
 					}
 					else {
 						/// start the new coalescing streak
@@ -450,8 +492,19 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 					}
 				}
 			}
-
 		}
+		else if (freeSlots[0] == 0) {
+			if (__curCoalesceSize > 0) {
+				/// create the coalesced task and add it to the task graph
+				addCoalescedTask(coalescedTask);
+
+				/// restart coalescing
+				__curCoalesceSize = 0;
+				coalescedTask = new kmp_task();
+				coalescedTask->metadata = new _mtsp_task_metadata();
+			}
+		}
+
 		__itt_task_end(__itt_mtsp_domain);
 
 
@@ -464,15 +517,13 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		if ((iterations & BatchSize) == 0) {
 			submissionQueue.fsh();
 
-			if (__mtsp_threadWait) {
-				/// Add the pending tasks to the Task Graph
-				for (int idx=0; idx<__curCoalesceSize ; idx++) 
-					addToTaskGraph( coalescedTask->metadata->coalesced[idx] );
+			if (__mtsp_threadWait && __curCoalesceSize > 0) {
+				/// create the coalesced task and add it to the task graph
+				addCoalescedTask(coalescedTask);
 
 				/// start the new coalescing streak
-				coalescedTask = nullptr;
-				prevRoutine = nullptr;
 				__curCoalesceSize =0;
+				prevRoutine = nullptr;
 			}
 
 #ifdef MTSP_WORKSTEALING_RT

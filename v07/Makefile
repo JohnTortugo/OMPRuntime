@@ -2,8 +2,8 @@ SOURCES		= $(shell find $(SOURCEDIR) -maxdepth 1 -name '*.cpp')
 OBJS		= $(SOURCES:.cpp=.o) 
 LIB_NAME	= mtsp.so 
 
-SERRORS		= -Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value
-CFLAGS		= -g -std=c++11 -fpic $(SERRORS) -I/opt/intel/vtune_amplifier_xe_2015.3.0.403110/target/linux64/include/ 
+SERRORS		= #-Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value
+CFLAGS		= -g3 -std=c++11 -fpic $(SERRORS) -I/opt/intel/vtune_amplifier_xe_2015.3.0.403110/target/linux64/include/ 
 OPT_LVL		= 
 
 mtsp: $(OBJS) CLANG_COMPLETE

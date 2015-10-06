@@ -64,7 +64,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 		bool isOutput	= depList[depIdx].flags.out;
 
 		/// <ID_OF_LAST_WRITER, IDS_OF_CURRENT_READERS>
-		std::pair<kmp_uint32, std::vector<kmp_uint32>> hashValue;
+		std::pair<kmp_int32, std::vector<kmp_uint32>> hashValue;
 
 		/// Is someone already accessing this address?
 		if (hashEntry != dependenceTable.end()) {
@@ -79,13 +79,13 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 			///		reset the readers from the last writing
 			if (isOutput) {
 				if (hashValue.second.size() != 0) {
-					depCounter += hashValue.second.size();
 
 					/// The new task become dependent on all previous readers
 					for (auto& idReader : hashValue.second) {
 						/// If the new task does not already depends on the reader, it now becomes dependent
 						if (whoIDependOn[newTaskId][idReader] == false) {
 							whoIDependOn[newTaskId][idReader] = true;
+							depCounter++;
 
 							dependents[idReader][0]++;
 							dependents[idReader][ dependents[idReader][0] ] = newTaskId;
@@ -119,7 +119,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					}
 				}
 
-				hashValue.first  = newTaskId;
+				hashValue.first = newTaskId;
 				hashValue.second.clear();
 			}
 			else {
@@ -155,11 +155,11 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 
 			/// New task is writing to this address
 			if (isOutput) {
-				hashValue.first  = newTaskId;
+				hashValue.first = newTaskId;
 				hashValue.second.clear();
 			}
 			else {/// The new task is just reading from this address
-				hashValue.first  = -1;
+				hashValue.first = -1;
 				hashValue.second.push_back(newTaskId);
 			}
 		}

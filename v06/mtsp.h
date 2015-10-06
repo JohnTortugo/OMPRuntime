@@ -6,6 +6,7 @@
 
 	#include <pthread.h>
 	#include <vector>
+	#include <iostream>
 
 
 	//===----------------------------------------------------------------------===//
@@ -27,11 +28,11 @@
 //	#define SUBQUEUE_PATTERN				1	
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
-//	#define DEBUG_MODE						1
+	#define DEBUG_MODE						1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.
-//	#define TG_DUMP_MODE					1
+	#define TG_DUMP_MODE					1
 
 	/// Activate (when undefined) or deactivate (when defined) ITTNotify Events
 //	#define	INTEL_NO_ITTNOFIFY_API			1
@@ -71,18 +72,18 @@
 
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		         64
+	#define MAX_TASKS 					     		       4096
 	#define MAX_DEPENDENTS						  	  MAX_TASKS
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-	#define SUBMISSION_QUEUE_SIZE			        16*MAX_TASKS
+	#define SUBMISSION_QUEUE_SIZE			         2*MAX_TASKS
 	#define SUBMISSION_QUEUE_BATCH_SIZE						  4
-	#define SUBMISSION_QUEUE_CF	  			   				 90
+	#define SUBMISSION_QUEUE_CF	  			   				 50
 
 
 	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
 	#define RUN_QUEUE_SIZE							  MAX_TASKS
-	#define RUN_QUEUE_CF			    					 90
+	#define RUN_QUEUE_CF			    					 50
 
 	#define RETIREMENT_QUEUE_SIZE					4*MAX_TASKS
 

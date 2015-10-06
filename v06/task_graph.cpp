@@ -105,7 +105,7 @@ void __mtsp_dumpTaskGraphToDot() {
 	fprintf(fp, "}\n");
 	fclose(fp);
 
-	printf("Taskgraph written to file %s\n", fileName);
+	printf("Taskgraph with [%d] nodes written to file %s\n", MAX_TASKS-freeSlots[0], fileName);
 }
 
 

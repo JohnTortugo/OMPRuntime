@@ -122,6 +122,22 @@ int stick_this_thread_to_core(const char* const pref, int core_id) {
 	return 0;
 }
 
+
+void debug() {
+	std::cout << std::endl;
+	std::cout << "------------------ DEBUG ---------- DEBUG ------- DEBUG ----------" << std::endl;
+	std::cout << "__mtsp_numThreads;              => " << __mtsp_numThreads << std::endl;
+	std::cout << "__mtsp_numWorkerThreads;        => " << __mtsp_numWorkerThreads << std::endl;
+	std::cout << "__mtsp_inFlightTasks            => " << __mtsp_inFlightTasks << std::endl;
+	std::cout << "__mtsp_threadWait               => " << __mtsp_threadWait << std::endl;
+	std::cout << "__mtsp_threadWaitCounter        => " << __mtsp_threadWaitCounter<< std::endl;
+	std::cout << "freeSlots[0]                    => " << freeSlots[0] << std::endl;
+	std::cout << "submissionQueue.cur_load        => " << submissionQueue.cur_load() << std::endl;
+	std::cout << "RunQueue.cur_load               => " << RunQueue.cur_load() << std::endl;
+	std::cout << "RetirementQueue.cur_load        => " << RetirementQueue.cur_load() << std::endl;
+	std::cout << "------------------------------------------------------------------" << std::endl;
+}
+
 void __mtsp_initialize() {
 	__itt_mtsp_domain = __itt_domain_create("MTSP");
 	__itt_CT_Fork_Call = __itt_string_handle_create("CT_Fork_Call");
