@@ -6,6 +6,7 @@
 #include <sched.h>
 #include <string.h>
 #include <map>
+#include <cassert>
 
 #include "kmp.h"
 #include "mtsp.h"
@@ -28,10 +29,19 @@ unsigned char volatile __mtsp_lock_newTasksQueue = 0;
 /// Variables/constants related to the the taskMetadata buffer
 bool volatile __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
+
+/// Variables related to the coalescing framework
 std::map<kmp_uint64, std::pair<kmp_uint64, kmp_uint64>> taskSize;
 kmp_int16 __curCoalesceSize = 0;
 kmp_int16 __curTargetCoalescingSize = 0;
 
+kmp_int64 __coalNecessary = 0;
+kmp_int64 __coalUnnecessary = 0;
+kmp_int64 __coalImpossible = 0;
+kmp_int64 __coalOverflowed = 0;
+
+kmp_int64 __coalSuccess = 0;
+kmp_int64 __coalFailed = 0;
 
 
 
@@ -160,6 +170,18 @@ void updateAverageTaskSize(kmp_uint64 taskAddr, kmp_uint64 size) {
 	}
 }
 
+void __mtsp_reInitialize() {
+	__coalNecessary = 0;
+	__coalUnnecessary = 0;
+	__coalImpossible = 0;
+	__coalOverflowed = 0;
+	__coalSuccess = 0;
+	__coalFailed = 0;
+
+	/// The size of the tasks is reset every time we enter a new parallel region
+   	taskSize.clear();
+}
+
 void __mtsp_initialize() {
 	__itt_mtsp_domain = __itt_domain_create("MTSP");
 	__itt_CT_Fork_Call = __itt_string_handle_create("CT_Fork_Call");
@@ -193,6 +215,7 @@ void __mtsp_initialize() {
 	__itt_RT_Check_Del = __itt_string_handle_create("RT_Check_Del");
 	__itt_RT_Check_Add = __itt_string_handle_create("RT_Check_Add");
 	__itt_RT_Check_Oth = __itt_string_handle_create("RT_Check_Oth");
+
 
 
 	//===-------- This slot is free for use by any thread ----------===//
@@ -292,6 +315,10 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 
 	start = beg_read_mtsp();
 
+	/// Update the number of successes and failures to create a full coalesce
+	__coalSuccess += (__curCoalesceSize == __curTargetCoalescingSize);
+	__coalFailed += (__curCoalesceSize != __curTargetCoalescingSize);
+
 	coalescedTask->routine = executeCoalesced;
 	coalescedTask->metadata->coalesceSize = __curCoalesceSize;
 
@@ -343,11 +370,11 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	addToTaskGraph( coalescedTask );
 }
 
-kmp_int16 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-	kmp_int64 sti = taskSize[taskAddr].second;
-	kmp_int64 m   = __mtsp_numThreads;												/// Includes the runtime and the control
-	kmp_int64 ro  = 2 * taskSize[(kmp_uint64) __mtsp_RuntimeThreadCode].second; 	/// we double it because the stored value is average between add/del from TG
-	kmp_int64 co  = 0;
+kmp_int64 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
+	double sti = taskSize[taskAddr].second;
+	double m   = __mtsp_numThreads;												/// Includes the runtime and the control
+	double ro  = 2 * taskSize[(kmp_uint64) __mtsp_RuntimeThreadCode].second; 	/// we double it because the stored value is average between add/del from TG
+	double co  = 0;
 	
 	if (taskSize.find((kmp_uint64) addCoalescedTask) != taskSize.end()) {
 		co = taskSize[(kmp_uint64) addCoalescedTask].second;
@@ -357,34 +384,45 @@ kmp_int16 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
 	}
 
 
-	kmp_int64 num = (m * ro);
-	kmp_int64 den = (sti - m*co);
+	double num = (m * ro);
+	double den = (sti - m*co);
 
-	if (num == 0 || den == 0) return 0;
+	assert((num != 0 && den != 0) && "[Coalesce] Num or Den equals zero.");
 
-	kmp_int64 n = (m * ro) / (sti - m*co);
+	double n = (m * ro) / (sti - m*co);
 
-	if (n < 0) {
+	if (n <= 0) {
 #ifdef DEBUG_MODE
-		printf("Impossible to amortize (%lld). [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", MIN_SAMPLES_FOR_COALESCING, sti, m, ro, co, n);
+		printf("[Coalesce] Impossible to amortize (%d). [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", MIN_SAMPLES_FOR_COALESCING, sti, m, ro, co, n);
 #endif
+		__coalImpossible++;
 		return MAX_COALESCING_SIZE;
 	}
-	else if (n < MIN_SAMPLES_FOR_COALESCING) {
+	else if (n < 1) {
 #ifdef DEBUG_MODE
-		printf("No need for coalescing. [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", sti, m, ro, co, n);
+		printf("[Coalesce] No need for coalescing. [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", sti, m, ro, co, n);
 #endif
+		__coalUnnecessary++;
 		return 0;
 	}
 	else if (n > MAX_COALESCING_SIZE) {
 #ifdef DEBUG_MODE
-		printf("CRITICAL: Need to coalesce more than the allocated space (%lld). [sti=%lld, m=%lld, ro=%lld, co=%lld, n=%lld]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
+		printf("[Coalesce] CRITICAL: Need to coalesce more than the allocated space (%d). [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
 #endif
+		__coalOverflowed++;
 		return MAX_COALESCING_SIZE;
 	}
-
-	return ceil(n);
+	else {
+#ifdef DEBUG_MODE
+		printf("[Coalesce] Should coalesce. (%d). [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
+#endif
+		__coalNecessary++;
+		return ceil(n);
+	}
 }
+
+
+
 
 void* __mtsp_RuntimeThreadCode(void* params) {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//

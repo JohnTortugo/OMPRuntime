@@ -40,10 +40,10 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 
     	__mtsp_initialize();
     }
+
+	__mtsp_reInitialize();
 	RELEASE(&__mtsp_lock_initialized);
 
-	/// The size of the tasks is reset every time we enter a new parallel region
-   	taskSize.clear();
 
     /// Capture the parameters and add them to a void* array
     va_start(ap, microtask);
@@ -182,7 +182,8 @@ void steal_from_single_run_queue(bool just_a_bit) {
 	__itt_task_end(__itt_mtsp_domain);
 }
 
-kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
+
+void barrierFinishCode() {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
 
 	/// Flush the current state of the submission queues..
@@ -220,88 +221,81 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 #endif
 
 #ifdef MTSP_DUMP_STATS
-	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
-	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
-	printf("Addr of coalested_task is %x\n", executeCoalesced);
-	printf("Addr of runtime is %x\n", __mtsp_RuntimeThreadCode);
-	printf("Addr of coalescing is %x\n", addCoalescedTask);
+	printf("/ ---------------------------------------------------------------------------------\\\n");
+
+#ifdef MTSP_WORKSTEALING_CT	
+	printf("| %llu tasks were executed by the control thread.\n", tasksExecutedByCT);
+#endif
+
+#ifdef MTSP_WORKSTEALING_RT	
+	printf("| %llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
+#endif
+
+	printf("| Number of necessary coalesces %llu\n", __coalNecessary);
+	printf("| Number of unnecessary coalesces %llu\n", __coalUnnecessary);
+	printf("| Number of impossible coalesces %llu\n", __coalImpossible);
+	printf("| Number of overflowed coalesces %llu\n", __coalOverflowed);
+	printf("| Number of successfull coalesces %llu\n", __coalSuccess);
+	printf("| Number of failed coalesces %llu\n", __coalFailed);
+
 
 	for (auto& ts : taskSize) {
 		auto& val = ts.second;
-		std::cout << "Task " << std::hex << ts.first << " executed " << std::dec << val.first << " iteration(s) taking " << val.second << " cycles on average." << std::endl;
+		
+		std::cout << "| ";
+
+		if (ts.first == (kmp_uint64)executeCoalesced) 
+			std::cout << "Macrotask ";
+		else if (ts.first == (kmp_uint64)__mtsp_RuntimeThreadCode) 
+			std::cout << "Runtime ";
+		else if (ts.first == (kmp_uint64)addCoalescedTask) 
+			std::cout << "Coalescing ";
+		else 
+			std::cout << "Task " << std::hex << ts.first;
+
+
+		std::cout << " executed " << std::dec << val.first << " iteration(s) taking " << val.second << " cycles on average." << std::endl;
 	}
 
-	printf("\n\n\n");
+	printf("\\---------------------------------------------------------------------------------/\n\n\n");
+
 #endif
 
 	__itt_task_end(__itt_mtsp_domain);
+
+}
+
+
+kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
+	barrierFinishCode();
 	return 0;
 }
 
 void __kmpc_barrier(ident* loc, kmp_int32 gtid) {
+#ifdef DEBUG_MODE
 	printf("***************** Executando uma barreira.\n");
+#endif
 }
 
 kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
-	//printf("__kmpc_cancel_barrier %s:%d\n", __FILE__, __LINE__);
+#ifdef DEBUG_MODE
+	printf("__kmpc_cancel_barrier %s:%d\n", __FILE__, __LINE__);
+#endif
     return 0;
 }
 
 kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
-	//printf("__kmpc_single %s:%d\n", __FILE__, __LINE__);
+#ifdef DEBUG_MODE
+	printf("__kmpc_single %s:%d\n", __FILE__, __LINE__);
+#endif
 	return TRY_ACQUIRE(&__mtsp_Single);
 }
 
 void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
-
-	/// Flush the current state of the submission queues..
-	submissionQueue.fsh();
-
-#ifdef MTSP_WORKSTEALING_CT
-	steal_from_single_run_queue(false);
+#ifdef DEBUG_MODE
+	printf("__kmpc_end_single %s:%d\n", __FILE__, __LINE__);
 #endif
-
-#ifdef TG_DUMP_MODE
-	/// delete: this is just to debug (temporarily)
-	while (submissionQueue.cur_load() > 0);
-	__mtsp_dumpTaskGraphToDot();
-	__mtsp_activate_workers = true;
-#endif
-
-	/// Reset the number of threads that have currently reached the barrier
-	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
-
-	/// Tell threads that they should synchronize at a barrier
-	ATOMIC_OR(&__mtsp_threadWait, 1);
-
-	/// Wait until all threads have reached the barrier
-	while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads);
-
-	/// OK. Now all threads have reached the barrier. We now free then to continue execution
-	ATOMIC_AND(&__mtsp_threadWait, 0);
-
-	/// Before we continue we need to make sure that all threads have "seen" the previous
-	/// updated value of threadWait
-	while (__mtsp_threadWaitCounter != 0);
-
-#ifdef TG_DUMP_MODE
-	/// delete: this is just to debug (temporarily)
-	__mtsp_activate_workers = false;
-#endif
-
-#ifdef MTSP_DUMP_STATS
-	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
-	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
-#endif
-
-#ifdef MEASURE_TASK_SIZE
-//	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
-//		printf("%d %llu\n", lastPrintedTaskId, taskSizes[lastPrintedTaskId]);
-//	}
-#endif
-
-	__itt_task_end(__itt_mtsp_domain);
+	barrierFinishCode();
 	RELEASE(&__mtsp_Single);
 	return ;
 }
@@ -314,7 +308,9 @@ kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
 }
 
 void __kmpc_end_master(ident* loc, kmp_int32 gtid) {
-	//printf("__kmpc_end_master %s:%d\n", __FILE__, __LINE__);
+#ifdef DEBUG_MODE
+	printf("__kmpc_end_master %s:%d\n", __FILE__, __LINE__);
+#endif
 }
 
 int omp_get_num_threads() {

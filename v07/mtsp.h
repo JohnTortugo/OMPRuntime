@@ -22,7 +22,7 @@
 //	#define SUBQUEUE_PATTERN				1	
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
-//	#define DEBUG_MODE						1
+	#define DEBUG_MODE						1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.
@@ -32,10 +32,10 @@
 //	#define	INTEL_NO_ITTNOFIFY_API			1
 
 	/// Uncomment if you want the CT to steal work
-//	#define MTSP_WORKSTEALING_CT			1
+	#define MTSP_WORKSTEALING_CT			1
 
 	/// Uncomment if you want the RT to steal work
-//	#define MTSP_WORKSTEALING_RT			1
+	#define MTSP_WORKSTEALING_RT			1
 
 	/// Uncomment if you want to see some statistics at the end of
 	#define MTSP_DUMP_STATS					1
@@ -89,10 +89,26 @@
 	/// Memory region from where new tasks metadata will be allocated.
 	extern volatile bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 	extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
+
+	/// Variables related to the coalescing framework
 	extern std::map<kmp_uint64, std::pair<kmp_uint64, kmp_uint64>> taskSize;
 	extern kmp_int16 __curCoalesceSize;
 	extern kmp_int16 __curTargetCoalescingSize;
 
+	// These counters are updated only inside the function
+	// "howManyShouldBeCoalesced". They tell respectively: the number of items
+	// that coalescing was deemed necessary, unecessary, impossible (the system
+	// cannot support such task size) and,overflowed (require more than the
+	// maximum available resources),
+	// Other flags are used to indicate the number of times that was possible to
+	// create a full coalesce or not: __coalSuccess and __coalFailed.
+	extern kmp_int64 __coalNecessary;
+	extern kmp_int64 __coalUnnecessary;
+	extern kmp_int64 __coalImpossible;
+	extern kmp_int64 __coalOverflowed;
+	
+	extern kmp_int64 __coalSuccess;
+	extern kmp_int64 __coalFailed;
 
 
 
@@ -185,6 +201,8 @@
 	unsigned long long beg_read_mtsp();
 
 	int stick_this_thread_to_core(const char* const pref, int core_id);
+
+	void __mtsp_reInitialize();
 
 	void __mtsp_initialize();
 
