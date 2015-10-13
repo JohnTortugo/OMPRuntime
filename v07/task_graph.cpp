@@ -141,10 +141,6 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	start = beg_read_mtsp();
 
 	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
-
-	/// Decrement the number of tasks in the system currently
-	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
-
 	/// Release the dependent tasks
 	int sz = dependents[idOfFinishedTask][0];
 	for (int i=1; i<=sz; i++) {
@@ -181,6 +177,9 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	end = end_read_mtsp();
 
 	updateAverageTaskSize((kmp_uint64) __mtsp_RuntimeThreadCode, end - start);
+
+	/// Decrement the number of tasks in the system currently
+	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
 
 	__itt_task_end(__itt_mtsp_domain);
 }

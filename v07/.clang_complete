@@ -5,12 +5,7 @@
 -include ./fe_interface.cpp
 -include ./dep_tracker.cpp
 -include ./scheduler.cpp
--g
+-g3
 -std=c++11
 -fpic
--Wno-unused-variable
--Wno-format
--Wno-error=format
--Wno-unused-function
--Wno-unused-value
 -I/opt/intel/vtune_amplifier_xe_2015.3.0.403110/target/linux64/include/
