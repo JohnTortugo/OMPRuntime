@@ -1,3 +1,13 @@
+/**
+ * @file 	mtsp.h
+ * @brief 	This file contains functions and variables that are used all over the project.
+ *
+ * This file contains the prototypes of functions and variables used all over the 
+ * system, but mostly by the runtime thread itself. In this file there is also a
+ * set of preprocessor defines used to specify the size of the several queues and
+ * the task graph.
+ */
+
 #ifndef __MTSP_HEADER
 	#define __MTSP_HEADER 1
 
@@ -17,28 +27,80 @@
 	//
 	//===----------------------------------------------------------------------===//
 
-	/// This is used to tell the "fe_interface.cpp" to dump the sequence of task types
-	///  that were entered in the submission queue
-//	#define SUBQUEUE_PATTERN				1	
+	/// This is used to when we want to see the sequence of task types that were 
+	/// entered in the submission queue
+///	#define SUBQUEUE_PATTERN				1	
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
-	#define DEBUG_MODE						1
+///	#define DEBUG_MODE						1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.
-//	#define TG_DUMP_MODE					1
+///	#define TG_DUMP_MODE					1
 
 	/// Activate (when undefined) or deactivate (when defined) ITTNotify Events
-//	#define	INTEL_NO_ITTNOFIFY_API			1
+///	#define	INTEL_NO_ITTNOFIFY_API			1
 
 	/// Uncomment if you want the CT to steal work
-	#define MTSP_WORKSTEALING_CT			1
+//	#define MTSP_WORKSTEALING_CT			1
 
 	/// Uncomment if you want the RT to steal work
-	#define MTSP_WORKSTEALING_RT			1
+//	#define MTSP_WORKSTEALING_RT			1
 
 	/// Uncomment if you want to see some statistics at the end of
 	#define MTSP_DUMP_STATS					1
+
+	/// Represents the maximum number of tasks that can be stored in the task graph
+	#define MAX_TASKS 					     		        512
+	#define MAX_DEPENDENTS						  	  MAX_TASKS
+
+	/// Represents the maximum number of tasks in the Submission Queue
+	#define SUBMISSION_QUEUE_SIZE			        2*MAX_TASKS
+	#define SUBMISSION_QUEUE_BATCH_SIZE						  4
+	#define SUBMISSION_QUEUE_CF	  			   				 50
+
+	/// Represents the maximum number of tasks in the Run Queue
+	#define RUN_QUEUE_SIZE							  			  MAX_TASKS
+	#define RUN_QUEUE_CF			    					 			 50
+
+	/// Represents the maximum number of tasks in the Retirement Queue
+	#define RETIREMENT_QUEUE_SIZE								4*MAX_TASKS
+
+	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
+	/// larger than this will use a memory region returned by a call to std malloc.
+	#define TASK_METADATA_MAX_SIZE  								   1024
+
+	/// Number of task metadata slots
+	#define MAX_TASKMETADATA_SLOTS 		(MAX_TASKS + SUBMISSION_QUEUE_SIZE)
+
+	/// Just global constants recognized as \c LOCKED and \c UNLOCKED
+	#define LOCKED															1
+	#define UNLOCKED														0
+
+	/// When we enable thread pinning these defines are used to say in which
+	/// core the runtime and the control thread will stay
+	#define __MTSP_MAIN_THREAD_CORE__										2
+	#define __MTSP_RUNTIME_THREAD_CORE__									3
+
+
+
+
+	/**
+	 * The defines below are used as wrappers to GCC intrinsic functions. These
+	 * are all related to atomic operations supported in x86-64.
+	 * Some of the defines below use intrinsics relative to GCC/G++:
+	 * https://gcc.gnu.org/onlinedocs/gcc-5.1.0/gcc/_005f_005fsync-Builtins.html
+	 */
+	#define	TRY_ACQUIRE(ptr)		__sync_bool_compare_and_swap(ptr, UNLOCKED, LOCKED)
+	#define	ACQUIRE(ptr)			while (__sync_bool_compare_and_swap(ptr, UNLOCKED, LOCKED) == false)
+	#define RELEASE(ptr)			__sync_bool_compare_and_swap(ptr, LOCKED, UNLOCKED)
+	#define CAS(ptr, val1, val2)	__sync_bool_compare_and_swap(ptr, val1, val2)
+
+
+	#define ATOMIC_ADD(ptr, val)	__sync_add_and_fetch(ptr, val)
+	#define ATOMIC_SUB(ptr, val)	__sync_sub_and_fetch(ptr, val)
+	#define ATOMIC_AND(ptr, val)	__sync_and_and_fetch(ptr, val)
+	#define ATOMIC_OR(ptr, val)		__sync_or_and_fetch(ptr, val)
 
 
 
@@ -49,70 +111,85 @@
 	//
 	//===----------------------------------------------------------------------===//
 
-	/// Tells whether the MTSP runtime has already been initialized
+	/// Tells whether the MTSP runtime has already been initialized or not.
 	extern bool volatile __mtsp_initialized;
 
+	/// This variable is used as a lock. The lock is used when initializing the MTSP runtime.
+	extern unsigned char volatile __mtsp_lock_initialized;
+
+	/// This variable is used as a lock. The lock is used in the \c kmpc_omp_single 
 	extern bool volatile __mtsp_Single;
 
-
-	/// This is the thread referencing the MTSP runtime thread
+	/// This is the thread variable for the MTSP runtime thread.
 	extern pthread_t __mtsp_RuntimeThread;
 
-
-	/// This is a global counter that can identify any thread 
+	/// This is a global counter used to give an unique identifier to all tasks
+	/// executed by the system.
 	extern kmp_uint32 __mtsp_globalTaskCounter;
+
+	/// This is used together with \c __mtsp_globalTaskCounter for assigning/dumping
+	/// the global unique ID of each task in the system.
 	extern kmp_uint32 lastPrintedTaskId;
 
-
-
-	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		         64
-	#define MAX_DEPENDENTS						  	  MAX_TASKS
-
-	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-	#define SUBMISSION_QUEUE_SIZE			        2*MAX_TASKS
-	#define SUBMISSION_QUEUE_BATCH_SIZE						  4
-	#define SUBMISSION_QUEUE_CF	  			   				 50
-
-
-	/// Represents the maximum number of tasks in the "new tasks queue" in the front-end
-	#define RUN_QUEUE_SIZE							  			  MAX_TASKS
-	#define RUN_QUEUE_CF			    					 			 50
-
-	#define RETIREMENT_QUEUE_SIZE								4*MAX_TASKS
-
-	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
-	/// larger than this will use a memory region returned by a call to std malloc.
-	#define TASK_METADATA_MAX_SIZE  								   1024
-	#define MAX_TASKMETADATA_SLOTS 		(MAX_TASKS + SUBMISSION_QUEUE_SIZE)
-
 	/// Memory region from where new tasks metadata will be allocated.
-	extern volatile bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 	extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
-	/// Variables related to the coalescing framework
-	extern std::map<kmp_uint64, std::pair<kmp_uint64, kmp_uint64>> taskSize;
-	extern kmp_int16 __curCoalesceSize;
-	extern kmp_int16 __curTargetCoalescingSize;
+	/// Status of each slot in the \c __mtsp_taskMetadataBuffer
+	extern volatile bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 
-	// These counters are updated only inside the function
-	// "howManyShouldBeCoalesced". They tell respectively: the number of items
-	// that coalescing was deemed necessary, unecessary, impossible (the system
-	// cannot support such task size) and,overflowed (require more than the
-	// maximum available resources),
-	// Other flags are used to indicate the number of times that was possible to
-	// create a full coalesce or not: __coalSuccess and __coalFailed.
-	extern kmp_int64 __coalNecessary;
-	extern kmp_int64 __coalUnnecessary;
-	extern kmp_int64 __coalImpossible;
-	extern kmp_int64 __coalOverflowed;
+
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	// Variables related to the coalescing framework
 	
+	/// Used to store the harmonic average execution time of tasks, runtime and coalescing
+	/// routines. The key is any integer, usually the address of the task or routine.
+	/// The value is pair [integer:double]. The first of these is the number of items that
+	/// were averaged, the second is the value of the average.
+	extern std::map<kmp_uint64, std::pair<kmp_uint64, double>> taskSize;
+
+	/// This is the size of the current coalescing being constructed.
+	extern kmp_int16 __curCoalesceSize;
+
+	/// This is the target size of the current coalescing. I.e., how many tasks should
+	/// be coalesced together to amortize the overhead.
+	extern kmp_int16 __curTargetCoalescingSize;
+	
+	/// the number of times that coalescing was deemed necessary. I.e., the system can
+	/// and should amortize the execution of tasks.
+	extern kmp_int64 __coalNecessary;
+
+	/// the number of times that coalescing was deemed unnecessary. I.e., the task size
+	/// is sufficiently large to amortize the runtime overhead.
+	extern kmp_int64 __coalUnnecessary;
+
+	/// the number of times that coalescing was deemed impossible. I.e., the overhead
+	/// of the runtime and the coalescing framework is too high for this target task
+	/// size and number of worker threads.
+	extern kmp_int64 __coalImpossible;
+
+	/// the number of times that coalescing was deemed overflowed. I.e., the target
+	/// size of the coalescing was greater than the allocated resources.
+	extern kmp_int64 __coalOverflowed;
+
+	/// Number of times that was possible to create a full coalescing. I.e., the
+	/// \c __curCoalesceSize reached \c __curTargetCoalescingSize
 	extern kmp_int64 __coalSuccess;
+
+	/// Number of times that was not possible to complete the coalescing. I.e., 
+	/// \c __curCoalesceSize did not reached \c __curTargetCoalescingSize because
+	/// there was not sufficiently equal tasks in a row.
 	extern kmp_int64 __coalFailed;
 
 
-
-	//===-------- These vars are used to interact with VTune ----------===//
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	// These vars are used to interact with VTune
+	
 	/// ITTNotify domain of events/tasks/frames
 	extern __itt_domain* 		volatile __itt_mtsp_domain;
 
@@ -179,74 +256,94 @@
 	extern __itt_string_handle* volatile __itt_RT_Check_Oth;
 
 
-	//===-------- Locks used to control access to the variables above ----------===//
 
-	extern unsigned char volatile __mtsp_lock_initialized;
-
-
-
-
-
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////
+	
 
 
-	//===----------------------------------------------------------------------===//
-	//
-	// Global functions prototype
-	//
-	//===----------------------------------------------------------------------===//
-
-	/// For reading the RDTSCP counter in the x86 architecture. You must call these
-	/// functions in the order "beg" (target_region_of_interest) "end".
+	// For reading the RDTSCP counter in the x86 architecture. You must call these
+	// functions in the order "beg" (target_region_of_interest) "end".
+	/// Used to read MTSP at the beggining of a region
 	unsigned long long end_read_mtsp();
+
+	/// Used to read MTSP at the beggining of a region
 	unsigned long long beg_read_mtsp();
 
+	/**
+	 * When thread pinning is enabled this is the function that all threads call
+	 * in order to be pinned to a desired core.
+	 *
+	 * @param core_id		ID of the core that the threads wants to execute on.
+	 */
 	int stick_this_thread_to_core(const char* const pref, int core_id);
 
+	/**
+	 * This function is executed every time that MTSP enters a new parallel region.
+	 * It is responsible for re-initializing all global variables/data structures.
+	 */
 	void __mtsp_reInitialize();
 
+	/**
+	 * This function is the one responsible for initializing the MTSP runtime itself.
+	 * It is called from inside the \c __kmpc_fork_call by the control thread the first
+	 * time it encounters a parallel region. This function will call another functions
+	 * that will initialize the Dependence Manager, Task Graph Manager, Scheduler and
+	 * create the Worker Threads according to the environment variable OMP_NUM_THREADS.
+	 */
 	void __mtsp_initialize();
 
+	/**
+	 * This function is the one that actually enqueue a task in the submission queue.
+	 * It is executed by the control thread.
+	 *
+	 * @param newTask		A pointer to a task structure returned by \c kmpc_omp_task_alloc
+	 * @param ndeps			The number of memory addresses this task access
+	 * @param depList		The list of memory addresses this task access
+	 */
 	void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList);
 
+	/**
+	 * This function is the one executed by the runtime thread itself. The parameter is
+	 * just boiler plate code used by the pthread API and is not used for anything. The
+	 * body of the function is mostly composed of a \c while loop with two parts: 1) removing
+	 * tasks from the retirement queue and from the task graph; 2) removing task creation
+	 * requests from the submission queue and adding to the task graph.
+	 *
+	 * @param	params		Used for nothing.
+	 * @return 				nullptr.
+	 */
 	void* __mtsp_RuntimeThreadCode(void* params);
 
-	void updateAverageTaskSize(kmp_uint64 taskAddr, kmp_uint64 size);
+	/**
+	 * This function is the one used for updating the average execution time of any piece of
+	 * code. The function do not keep track of the history of execution times, it uses a
+	 * simple algebra to update the average.
+	 *
+	 * @param taskAddr	Identification of the code snippet.
+	 * @param size		Execute time (in cycles) of the code.
+	 */
+	void updateAverageTaskSize(kmp_uint64 taskAddr, double size);
 
+	/**
+	 * This function is an "artificial task" used to execute a group of tasks that have
+	 * been coalesced together.
+	 *
+	 * @param notUsed	Currently useless. Just Clang boiler plate.
+	 * @param param		Used to pass all parameters to the task.
+	 */
 	extern int executeCoalesced(int notUsed, void* param);
 
-	void addCoalescedTask(kmp_task* coalescedTask);
-
-
-
-	//===----------------------------------------------------------------------===//
-	//
-	// Global directives to help with locks/atomics
-	//
-	//===----------------------------------------------------------------------===//
-
-	#define LOCKED					1
-	#define UNLOCKED				0
-
-	#define __MTSP_MAIN_THREAD_CORE__			2
-	#define __MTSP_RUNTIME_THREAD_CORE__		3
-
-
-
-
-	/*!
-	 * Some of the defines below use intrinsics relative to GCC/G++:
-	 * https://gcc.gnu.org/onlinedocs/gcc-5.1.0/gcc/_005f_005fsync-Builtins.html
+	/**
+	 * This function is used when the runtime wants to add a new coalesced task to the
+	 * task graph. That is, the coalescing framework decided to coalesce a sequence of
+	 * tasks and subsequently created a group of tasks (i.e., a coalesce) and now wants
+	 * to add this "macro task" to the task graph.
 	 *
+	 * @param coalescedTask		A pointer to the "artifical task" that will execute a group of subtasks that were coalesced together.
 	 */
-	#define	TRY_ACQUIRE(ptr)		__sync_bool_compare_and_swap(ptr, UNLOCKED, LOCKED)
-	#define	ACQUIRE(ptr)			while (__sync_bool_compare_and_swap(ptr, UNLOCKED, LOCKED) == false)
-	#define RELEASE(ptr)			__sync_bool_compare_and_swap(ptr, LOCKED, UNLOCKED)
-	#define CAS(ptr, val1, val2)	__sync_bool_compare_and_swap(ptr, val1, val2)
-
-
-	#define ATOMIC_ADD(ptr, val)	__sync_add_and_fetch(ptr, val)
-	#define ATOMIC_SUB(ptr, val)	__sync_sub_and_fetch(ptr, val)
-	#define ATOMIC_AND(ptr, val)	__sync_and_and_fetch(ptr, val)
-	#define ATOMIC_OR(ptr, val)		__sync_or_and_fetch(ptr, val)
+	void addCoalescedTask(kmp_task* coalescedTask);
 
 #endif

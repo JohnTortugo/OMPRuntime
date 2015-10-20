@@ -1,3 +1,9 @@
+/**
+ * @file 	fe_interface.h
+ * @brief 	This file contains functions and variables related the MTSP frontend.
+ *
+ */
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstdarg>
@@ -26,10 +32,10 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     void** argvcp 	= argv;
     va_list ap;
 
-    /// Check whether the runtime library is initialized
+    // Check whether the runtime library is initialized
     ACQUIRE(&__mtsp_lock_initialized);
     if (__mtsp_initialized == false) {
-    	/// Init random number generator. We use this on the work stealing part.
+    	// Init random number generator. We use this on the work stealing part.
     	srandom( time(NULL) );
 
     	__mtsp_initialized = true;
@@ -45,14 +51,14 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 	RELEASE(&__mtsp_lock_initialized);
 
 
-    /// Capture the parameters and add them to a void* array
+    // Capture the parameters and add them to a void* array
     va_start(ap, microtask);
     for(i=0; i < argc; i++) { *argv++ = va_arg(ap, void *); }
 	va_end(ap);
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Fork_Call);
 
-	/// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
+	// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
     (microtask)(&tid, &tid, argvcp[0]);
 
     // Comment below if you assume the compiler or the programmer added a #pragma taskwait at the end of parallel region.
@@ -86,7 +92,7 @@ kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int16* memorySlotId) {
 //
 //	metadataRequestsNotServiced++;
 //
-	/// Lets take the "safe" side here..
+	// Lets take the "safe" side here..
 	return (kmp_taskdata*) malloc(numBytes);
 }
 
@@ -125,7 +131,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	printf("%llu %u\n", counter++, taskTypes[addr]);
 #endif
 
-	/// Ask to add this task to the task graph
+	// Ask to add this task to the task graph
 	__mtsp_addNewTask(new_task, ndeps, dep_list);
 
 	__itt_task_end(__itt_mtsp_domain);
@@ -136,7 +142,7 @@ void steal_from_single_run_queue(bool just_a_bit) {
 	kmp_task* taskToExecute = nullptr;
 	kmp_uint16 myId = __mtsp_numWorkerThreads;
 
-	/// Counter for the total cycles spent per task
+	// Counter for the total cycles spent per task
 	unsigned long long start=0, end=0;
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
@@ -161,7 +167,7 @@ void steal_from_single_run_queue(bool just_a_bit) {
 
 			start = beg_read_mtsp();
 
-			/// Start execution of the task
+			// Start execution of the task
 			(*(taskToExecute->routine))(0, taskToExecute);
 
 			end = end_read_mtsp();
@@ -186,7 +192,7 @@ void steal_from_single_run_queue(bool just_a_bit) {
 void barrierFinishCode() {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
 
-	/// Flush the current state of the submission queues..
+	// Flush the current state of the submission queues..
 	submissionQueue.fsh();
 
 #ifdef MTSP_WORKSTEALING_CT
@@ -199,24 +205,24 @@ void barrierFinishCode() {
 	__mtsp_activate_workers = true;
 #endif
 
-	/// Reset the number of threads that have currently reached the barrier
+	// Reset the number of threads that have currently reached the barrier
 	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
 
-	/// Tell threads that they should synchronize at a barrier
+	// Tell threads that they should synchronize at a barrier
 	ATOMIC_OR(&__mtsp_threadWait, 1);
 
-	/// Wait until all threads have reached the barrier
+	// Wait until all threads have reached the barrier
 	while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads);
 
-	/// OK. Now all threads have reached the barrier. We now free then to continue execution
+	// OK. Now all threads have reached the barrier. We now free then to continue execution
 	ATOMIC_AND(&__mtsp_threadWait, 0);
 
-	/// Before we continue we need to make sure that all threads have "seen" the previous
-	/// updated value of threadWait
+	// Before we continue we need to make sure that all threads have "seen" the previous
+	// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
 
 #ifdef TG_DUMP_MODE
-	/// delete: this is just to debug (temporarily)
+	// delete: this is just to debug (temporarily)
 	__mtsp_activate_workers = false;
 #endif
 

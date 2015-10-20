@@ -1,7 +1,6 @@
 -std=c++11
 -include ./mtsp.cpp
 -include ./task_graph.cpp
--include ./ThreadedQueue.cpp
 -include ./fe_interface.cpp
 -include ./dep_tracker.cpp
 -include ./scheduler.cpp
