@@ -47,7 +47,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     	__mtsp_initialize();
     }
 
-	__mtsp_reInitialize();
+	//__mtsp_reInitialize();
 	RELEASE(&__mtsp_lock_initialized);
 
 
@@ -62,36 +62,37 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     (microtask)(&tid, &tid, argvcp[0]);
 
     // Comment below if you assume the compiler or the programmer added a #pragma taskwait at the end of parallel region.
-    __kmpc_omp_taskwait(nullptr, 0);
+    //__kmpc_omp_taskwait(nullptr, 0);
+    printf("Expecting barrier....\n");
 
     __itt_task_end(__itt_mtsp_domain);
 }
 
 kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int16* memorySlotId) {
-//	if (numBytes > TASK_METADATA_MAX_SIZE) {
-//#ifdef DEBUG_MODE
-//		printf("Request for metadata slot to big: %u\n", numBytes);
-//#endif
-//		metadataRequestsNotServiced++;
-//		return (kmp_taskdata*) malloc(numBytes);
-//	}
-//	else {
-//		for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
-//			if (__mtsp_taskMetadataStatus[i] == false) {
-//				__mtsp_taskMetadataStatus[i] = true;
-//				*memorySlotId = i;
-//				return  (kmp_taskdata*) __mtsp_taskMetadataBuffer[i];
-//			}
-//		}
-//	}
-//
-//#ifdef DEBUG_MODE
-//	static int counter = 0;
-//	fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots. %d\n", __FUNCTION__, __LINE__, counter++);
-//#endif
-//
-//	metadataRequestsNotServiced++;
-//
+	if (numBytes > TASK_METADATA_MAX_SIZE) {
+#ifdef DEBUG_MODE
+		printf("Request for metadata slot to big: %u\n", numBytes);
+#endif
+		metadataRequestsNotServiced++;
+		return (kmp_taskdata*) malloc(numBytes);
+	}
+	else {
+		for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
+			if (__mtsp_taskMetadataStatus[i] == false) {
+				__mtsp_taskMetadataStatus[i] = true;
+				*memorySlotId = i;
+				return  (kmp_taskdata*) __mtsp_taskMetadataBuffer[i];
+			}
+		}
+	}
+
+#ifdef DEBUG_MODE
+	static int counter = 0;
+	fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots. %d\n", __FUNCTION__, __LINE__, counter++);
+#endif
+
+	metadataRequestsNotServiced++;
+
 	// Lets take the "safe" side here..
 	return (kmp_taskdata*) malloc(numBytes);
 }
@@ -111,6 +112,7 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
     task->routine  = task_entry;
     task->metadata = (_mtsp_task_metadata*) &((char *) taskdata)[shareds_offset + sizeof_shareds];
 	task->metadata->globalTaskId = -1;
+	task->metadata->coalesceSize = 0;
     task->metadata->metadata_slot_id = memorySlotId;
 
     __itt_task_end(__itt_mtsp_domain);
@@ -243,24 +245,36 @@ void barrierFinishCode() {
 	printf("| Number of overflowed coalesces %llu\n", __coalOverflowed);
 	printf("| Number of successfull coalesces %llu\n", __coalSuccess);
 	printf("| Number of failed coalesces %llu\n", __coalFailed);
+	printf("| \n");
+
+	for (auto& ts : realTasks) {
+		auto taskAddr = ts.first;
+		auto taskRtlAddr = (ts.first ^ (kmp_uint64) __mtsp_RuntimeThreadCode);
+		auto taskColAddr = (ts.first ^ (kmp_uint64) addCoalescedTask);
+		auto taskMacAddr = (ts.first ^ (kmp_uint64) executeCoalesced);
+		auto taskRclAddr = (taskMacAddr ^ (kmp_uint64) __mtsp_RuntimeThreadCode);
+
+		auto tskTimes = taskSize[taskAddr].first;
+		auto tskAverage = taskSize[taskAddr].second;
+
+		auto rtlTimes = taskSize[taskRtlAddr].first;
+		auto rtlAverage = taskSize[taskRtlAddr].second;
+
+		auto rclTimes = taskSize[taskRclAddr].first;
+		auto rclAverage = taskSize[taskRclAddr].second;
+
+		auto colTimes = taskSize[taskColAddr].first;
+		auto colAverage = taskSize[taskColAddr].second;
+
+		auto macTimes = taskSize[taskMacAddr].first;
+		auto macAverage = taskSize[taskMacAddr].second;
 
 
-	for (auto& ts : taskSize) {
-		auto& val = ts.second;
-		
-		std::cout << "| ";
-
-		if (ts.first == (kmp_uint64)executeCoalesced) 
-			std::cout << "Macrotask ";
-		else if (ts.first == (kmp_uint64)__mtsp_RuntimeThreadCode) 
-			std::cout << "Runtime ";
-		else if (ts.first == (kmp_uint64)addCoalescedTask) 
-			std::cout << "Coalescing ";
-		else 
-			std::cout << "Task " << std::hex << ts.first;
-
-
-		std::cout << " executed " << std::dec << val.first << " iteration(s) taking " << val.second << " cycles on average." << std::endl;
+		std::cout << "| Task " 					 						 << std::hex << taskAddr << " executed " << std::dec << tskTimes << " times, taking on average " << tskAverage << " cycles to execute." << std::endl;
+		std::cout << "| \t" << std::setw(25) << "Runtime-Ind for Task "  << std::hex << taskAddr << " executed " << std::dec << rtlTimes << " times, taking on average " << rtlAverage << " cycles to execute." << std::endl;
+		std::cout << "| \t" << std::setw(25) << "Runtime-Col for Task "  << std::hex << taskAddr << " executed " << std::dec << rclTimes << " times, taking on average " << rclAverage << " cycles to execute." << std::endl;
+		std::cout << "| \t" << std::setw(25) << "Coalescing for Task "   << std::hex << taskAddr << " executed " << std::dec << colTimes << " times, taking on average " << colAverage << " cycles to execute." << std::endl;
+		std::cout << "| \t" << std::setw(25) << "Macrotask for Task "    << std::hex << taskAddr << " executed " << std::dec << macTimes << " times, taking on average " << macAverage << " cycles to execute." << std::endl;
 	}
 
 	printf("\\---------------------------------------------------------------------------------/\n\n\n");

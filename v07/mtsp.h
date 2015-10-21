@@ -19,6 +19,7 @@
 	#include <map>
 	#include <utility>
 	#include <iostream>
+	#include <iomanip>
 
 
 	//===----------------------------------------------------------------------===//
@@ -32,7 +33,7 @@
 ///	#define SUBQUEUE_PATTERN				1	
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
-///	#define DEBUG_MODE						1
+	#define DEBUG_MODE						1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.
@@ -51,7 +52,7 @@
 	#define MTSP_DUMP_STATS					1
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		        512
+	#define MAX_TASKS 					     		        16
 	#define MAX_DEPENDENTS						  	  MAX_TASKS
 
 	/// Represents the maximum number of tasks in the Submission Queue
@@ -149,6 +150,7 @@
 	/// The value is pair [integer:double]. The first of these is the number of items that
 	/// were averaged, the second is the value of the average.
 	extern std::map<kmp_uint64, std::pair<kmp_uint64, double>> taskSize;
+	extern std::map<kmp_uint64, bool> realTasks;
 
 	/// This is the size of the current coalescing being constructed.
 	extern kmp_int16 __curCoalesceSize;
@@ -236,6 +238,8 @@
 	extern __itt_string_handle* volatile __itt_WT_Wait_For_Work;
 
 	/// Label for itt-events representing periods where an worker thread was executing a task
+	extern __itt_string_handle* volatile __itt_Coalescing;
+	extern __itt_string_handle* volatile __itt_Coal_In_Execution;
 	extern __itt_string_handle* volatile __itt_Task_In_Execution;
 
 	/// Label for itt-events representing periods where an thread stealing tasks

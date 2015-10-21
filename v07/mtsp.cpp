@@ -38,6 +38,7 @@ char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
 /// Variables related to the coalescing framework
 std::map<kmp_uint64, std::pair<kmp_uint64, double>> taskSize;
+std::map<kmp_uint64, bool> realTasks;
 kmp_int16 __curCoalesceSize = 0;
 kmp_int16 __curTargetCoalescingSize = 0;
 
@@ -74,6 +75,8 @@ __itt_string_handle* volatile __itt_CT_Task_With_Deps = nullptr;
 __itt_string_handle* volatile __itt_WT_Barrier = nullptr;
 __itt_string_handle* volatile __itt_WT_Serving_Steal = nullptr;
 __itt_string_handle* volatile __itt_WT_Wait_For_Work = nullptr;
+__itt_string_handle* volatile __itt_Coalescing = nullptr;
+__itt_string_handle* volatile __itt_Coal_In_Execution = nullptr;
 __itt_string_handle* volatile __itt_Task_In_Execution = nullptr;
 __itt_string_handle* volatile __itt_Task_Stealing = nullptr;
 __itt_string_handle* volatile __itt_SPSC_Enq = nullptr;
@@ -186,6 +189,10 @@ void __mtsp_reInitialize() {
 
 	/// The size of the tasks is reset every time we enter a new parallel region
    	taskSize.clear();
+
+#ifdef DEBUG_MODE
+	realTasks.clear();
+#endif
 }
 
 void __mtsp_initialize() {
@@ -210,6 +217,10 @@ void __mtsp_initialize() {
 	__itt_WT_Barrier = __itt_string_handle_create("WT_Barrier");
 	__itt_WT_Serving_Steal = __itt_string_handle_create("WT_Serving_Steal");
 	__itt_WT_Wait_For_Work = __itt_string_handle_create("WT_Wait_For_Work");
+
+	__itt_Coalescing = __itt_string_handle_create("Coalescing");
+	__itt_Coal_In_Execution = __itt_string_handle_create("Coal_In_Execution");
+
 	__itt_Task_In_Execution = __itt_string_handle_create("Task_In_Execution");
 	__itt_Task_Stealing = __itt_string_handle_create("Task_Stealing");
 	__itt_SPSC_Enq = __itt_string_handle_create("SPSC_Enq");
@@ -319,6 +330,8 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	// Counter for the total cycles spent per task
 	unsigned long long start=0, end=0;
 
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Coalescing);
+
 	start = beg_read_mtsp();
 
 	// Update the number of successes and failures to create a full coalesce
@@ -377,11 +390,16 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	updateAverageTaskSize(colKey, (end - start) / __curCoalesceSize);
 
 	addToTaskGraph( coalescedTask );
+
+	__itt_task_end(__itt_mtsp_domain);
 }
 
 kmp_int64 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-	kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
+	kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr ^ (kmp_uint64) executeCoalesced);
 	kmp_uint64 colKey = ((kmp_uint64) addCoalescedTask ^ taskAddr);
+
+	if (taskSize.find(rtlKey) == taskSize.end())
+		rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
 
 	double sti = taskSize[taskAddr].second;
 	double m   = __mtsp_numThreads;				/// Includes the runtime and the control
@@ -451,20 +469,47 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	kmp_routine_entry prevRoutine = nullptr;
 	kmp_task* coalescedTask = nullptr;
 
+	// Counter for the total cycles spent per task
+	bool changed = false;
+	unsigned long long start=0, end=0;
+
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Main_Loop);
 	while (true) {
-
+		changed = false;
+		start = beg_read_mtsp();
 
 		// -------------------------------------------------------------------------------
 		// Check if the execution of a task has been completed
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Del);
 		if (RetirementQueue.try_deq(&task)) {
-			updateAverageTaskSize((kmp_uint64) task->routine, task->metadata->taskSize);
+			changed = true;
+
+			if (task->metadata->coalesceSize > 0) {
+				updateAverageTaskSize(((kmp_uint64) task->routine ^ (kmp_uint64) task->metadata->coalesced[0]->routine), task->metadata->taskSize);
+			}
+			else {
+				updateAverageTaskSize((kmp_uint64) task->routine, task->metadata->taskSize);
+			}
 
 			removeFromTaskGraph(task);
 		}
 		__itt_task_end(__itt_mtsp_domain);
 
+		end = end_read_mtsp();
+
+		/// If we in fact spent some time in removing things from the ReQ/TG
+		//		Was it a task individual or a coalesced task?
+		if (changed) {
+			kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ (kmp_uint64) task->routine);
+
+			if (task->metadata->coalesceSize > 0) 
+				rtlKey = rtlKey ^ (kmp_uint64)task->metadata->coalesced[0]->routine;
+
+			updateAverageTaskSize(rtlKey, end - start);
+
+			// reset changed
+			changed = false;
+		}
 
 
 		// -------------------------------------------------------------------------------
@@ -588,8 +633,4 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 
 	return 0;
 }
-
-
-
-
 

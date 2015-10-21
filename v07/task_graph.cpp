@@ -139,12 +139,6 @@ void __mtsp_initializeTaskGraph() {
 void removeFromTaskGraph(kmp_task* finishedTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
 
-	// Counter for the total cycles spent per task
-	unsigned long long start=0, end=0;
-
-	start = beg_read_mtsp();
-
-	kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ (kmp_uint64) finishedTask->routine);
 	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
 
 	// Release the dependent tasks
@@ -179,10 +173,6 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 	freeSlots[0]++;
 	freeSlots[freeSlots[0]] = idOfFinishedTask;
-
-	end = end_read_mtsp();
-
-	updateAverageTaskSize(rtlKey, end - start);
 
 	// Decrement the number of tasks in the system currently
 	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
@@ -227,7 +217,10 @@ void addToTaskGraph(kmp_task* newTask) {
 
 	end = end_read_mtsp();
 
-	updateAverageTaskSize(rtlKey, end - start);
+	if (newTask->metadata->coalesceSize == 0) 
+		updateAverageTaskSize(rtlKey, end - start);
+	else
+		updateAverageTaskSize(rtlKey ^ (kmp_uint64)newTask->metadata->coalesced[0]->routine, end - start);
 
 	__itt_task_end(__itt_mtsp_domain);
 }
