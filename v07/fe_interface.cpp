@@ -62,36 +62,36 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     (microtask)(&tid, &tid, argvcp[0]);
 
     // Comment below if you assume the compiler or the programmer added a #pragma taskwait at the end of parallel region.
-    //__kmpc_omp_taskwait(nullptr, 0);
-    printf("Expecting barrier....\n");
+    __kmpc_omp_taskwait(nullptr, 0);
+    // printf("Expecting barrier....\n");
 
     __itt_task_end(__itt_mtsp_domain);
 }
 
 kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int16* memorySlotId) {
-	if (numBytes > TASK_METADATA_MAX_SIZE) {
-#ifdef DEBUG_MODE
-		printf("Request for metadata slot to big: %u\n", numBytes);
-#endif
-		metadataRequestsNotServiced++;
-		return (kmp_taskdata*) malloc(numBytes);
-	}
-	else {
-		for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
-			if (__mtsp_taskMetadataStatus[i] == false) {
-				__mtsp_taskMetadataStatus[i] = true;
-				*memorySlotId = i;
-				return  (kmp_taskdata*) __mtsp_taskMetadataBuffer[i];
-			}
-		}
-	}
-
-#ifdef DEBUG_MODE
-	static int counter = 0;
-	fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots. %d\n", __FUNCTION__, __LINE__, counter++);
-#endif
-
-	metadataRequestsNotServiced++;
+//	if (numBytes > TASK_METADATA_MAX_SIZE) {
+//#ifdef DEBUG_MODE
+//		printf("Request for metadata slot to big: %u\n", numBytes);
+//#endif
+//		metadataRequestsNotServiced++;
+//		return (kmp_taskdata*) malloc(numBytes);
+//	}
+//	else {
+//		for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
+//			if (__mtsp_taskMetadataStatus[i] == false) {
+//				__mtsp_taskMetadataStatus[i] = true;
+//				*memorySlotId = i;
+//				return  (kmp_taskdata*) __mtsp_taskMetadataBuffer[i];
+//			}
+//		}
+//	}
+//
+//#ifdef DEBUG_MODE
+//	static int counter = 0;
+//	fprintf(stderr, "[%s:%d] There was not sufficient task metadata slots. %d\n", __FUNCTION__, __LINE__, counter++);
+//#endif
+//
+//	metadataRequestsNotServiced++;
 
 	// Lets take the "safe" side here..
 	return (kmp_taskdata*) malloc(numBytes);

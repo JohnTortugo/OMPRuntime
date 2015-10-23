@@ -346,17 +346,6 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	for (int idx=0; idx<__curCoalesceSize; idx++) {
 		kmp_task* currTask = coalescedTask->metadata->coalesced[idx];
 
-		if (idx > 0) {
-			// Decrement the number of tasks in the system currently
-			ATOMIC_SUB(&__mtsp_inFlightTasks, 1);
-
-			freeSlots[0]++;
-			freeSlots[ freeSlots[0] ] = currTask->metadata->taskgraph_slot_id;
-
-			if (currTask->metadata->metadata_slot_id >= 0)
-				__mtsp_taskMetadataStatus[currTask->metadata->metadata_slot_id] = false;
-		}
-
 		for (int depIdx=0; depIdx<currTask->metadata->ndeps; depIdx++) {
 			kmp_depend_info* currDepInfo = &currTask->metadata->dep_list[depIdx];
 
@@ -368,6 +357,17 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 				deps[currDepInfo->base_addr]->flags.in |= currDepInfo->flags.in;
 				deps[currDepInfo->base_addr]->flags.out |= currDepInfo->flags.out;
 			}
+		}
+
+		if (idx > 0) {
+			// Decrement the number of tasks in the system currently
+			ATOMIC_SUB(&__mtsp_inFlightTasks, 1);
+
+			freeSlots[0]++;
+			freeSlots[ freeSlots[0] ] = currTask->metadata->taskgraph_slot_id;
+
+			if (currTask->metadata->metadata_slot_id >= 0)
+				__mtsp_taskMetadataStatus[currTask->metadata->metadata_slot_id] = false;
 		}
 	}
 
@@ -395,15 +395,12 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 }
 
 kmp_int64 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-	kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr ^ (kmp_uint64) executeCoalesced);
+	kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
 	kmp_uint64 colKey = ((kmp_uint64) addCoalescedTask ^ taskAddr);
 
-	if (taskSize.find(rtlKey) == taskSize.end())
-		rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
-
 	double sti = taskSize[taskAddr].second;
-	double m   = __mtsp_numThreads;				/// Includes the runtime and the control
-	double ro  = 2 * taskSize[rtlKey].second; 	/// we double it because the stored value is average between add/del from TG
+	double m   = __mtsp_numWorkerThreads;				/// Includes the runtime and the control
+	double ro  = 2 * taskSize[rtlKey].second; 			/// we double it because the stored value is average of add/del (not the sum) from TG
 	double co  = 0;
 	
 	if (taskSize.find(colKey) != taskSize.end()) {
@@ -417,7 +414,7 @@ kmp_int64 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
 	double num = (m * ro);
 	double den = (sti - m*co);
 
-	assert((num != 0 && den != 0) && "[Coalesce] Num or Den equals zero.");
+	assert((num != 0 && den != 0) && "[Coalesce] Num or Den equals zero." && num && den);
 
 	double n = (m * ro) / (sti - m*co);
 
@@ -428,7 +425,7 @@ kmp_int64 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
 		__coalImpossible++;
 		return MAX_COALESCING_SIZE;
 	}
-	else if (n < 1) {
+	else if (n < 2) {
 #ifdef DEBUG_MODE
 		printf("[Coalesce] No need for coalescing. [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", sti, m, ro, co, n);
 #endif
@@ -469,47 +466,21 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	kmp_routine_entry prevRoutine = nullptr;
 	kmp_task* coalescedTask = nullptr;
 
-	// Counter for the total cycles spent per task
-	bool changed = false;
-	unsigned long long start=0, end=0;
-
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Main_Loop);
 	while (true) {
-		changed = false;
-		start = beg_read_mtsp();
-
 		// -------------------------------------------------------------------------------
 		// Check if the execution of a task has been completed
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Del);
 		if (RetirementQueue.try_deq(&task)) {
-			changed = true;
 
-			if (task->metadata->coalesceSize > 0) {
-				updateAverageTaskSize(((kmp_uint64) task->routine ^ (kmp_uint64) task->metadata->coalesced[0]->routine), task->metadata->taskSize);
-			}
-			else {
+			if (task->metadata->coalesceSize <= 0) {
 				updateAverageTaskSize((kmp_uint64) task->routine, task->metadata->taskSize);
 			}
+			/// If it is coalesced the size is updated when it executes
 
 			removeFromTaskGraph(task);
 		}
 		__itt_task_end(__itt_mtsp_domain);
-
-		end = end_read_mtsp();
-
-		/// If we in fact spent some time in removing things from the ReQ/TG
-		//		Was it a task individual or a coalesced task?
-		if (changed) {
-			kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ (kmp_uint64) task->routine);
-
-			if (task->metadata->coalesceSize > 0) 
-				rtlKey = rtlKey ^ (kmp_uint64)task->metadata->coalesced[0]->routine;
-
-			updateAverageTaskSize(rtlKey, end - start);
-
-			// reset changed
-			changed = false;
-		}
 
 
 		// -------------------------------------------------------------------------------
@@ -538,6 +509,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 					__curCoalesceSize = 0;
 					coalescedTask = new kmp_task();
 					coalescedTask->metadata = new _mtsp_task_metadata();
+					coalescedTask->metadata->coalesceSize = 0;
 				}
 			}
 			else {
@@ -556,6 +528,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 					__curCoalesceSize = 0;
 					coalescedTask = new kmp_task();
 					coalescedTask->metadata = new _mtsp_task_metadata();
+					coalescedTask->metadata->coalesceSize = 0;
 				}
 
 				// If we did not execute this kind of task a sufficient number of times to

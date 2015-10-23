@@ -139,7 +139,15 @@ void __mtsp_initializeTaskGraph() {
 void removeFromTaskGraph(kmp_task* finishedTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
 
+	// Counter for the total cycles spent per task
+	unsigned long long start=0, end=0;
 	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
+	kmp_uint64 rtlKey = 0;
+
+	start = beg_read_mtsp();
+
+	if (finishedTask->metadata->coalesceSize <= 0) 
+		rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ (kmp_uint64) finishedTask->routine);
 
 	// Release the dependent tasks
 	int sz = dependents[idOfFinishedTask][0];
@@ -177,6 +185,12 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	// Decrement the number of tasks in the system currently
 	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
 
+	end = end_read_mtsp();
+
+	// Should be the average execution time be updated?
+	if (rtlKey != 0)
+		updateAverageTaskSize(rtlKey, end - start);
+
 	__itt_task_end(__itt_mtsp_domain);
 }
 
@@ -186,11 +200,16 @@ void addToTaskGraph(kmp_task* newTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Add);
 
 	// Counter for the total cycles spent per task
-	unsigned long long start=0, end=0;
+	unsigned long long start=0, end=0, update=0;
+	kmp_uint64 rtlKey = 0;
 
-	kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ (kmp_uint64) newTask->routine);
+	if (newTask->metadata->coalesceSize <= 0) 
+		update=1;
 
-	start = beg_read_mtsp();
+	if (update) {
+		start = beg_read_mtsp();
+		rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ (kmp_uint64) newTask->routine);
+	}
 
 	kmp_uint32 ndeps = newTask->metadata->ndeps;
 	kmp_depend_info* depList = newTask->metadata->dep_list;
@@ -215,12 +234,10 @@ void addToTaskGraph(kmp_task* newTask) {
 		__itt_task_end(__itt_mtsp_domain);
 	}
 
-	end = end_read_mtsp();
-
-	if (newTask->metadata->coalesceSize == 0) 
+	if (update) {
+		end = end_read_mtsp();
 		updateAverageTaskSize(rtlKey, end - start);
-	else
-		updateAverageTaskSize(rtlKey ^ (kmp_uint64)newTask->metadata->coalesced[0]->routine, end - start);
+	}
 
 	__itt_task_end(__itt_mtsp_domain);
 }
