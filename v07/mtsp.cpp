@@ -337,14 +337,11 @@ void saveCoalesce() {
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Coalescing);
 
-
-		printf("Reached: curL=%lf {%d, %lf} tgtL=%lf curSize=%lld maxSize=%lld\n", __curCoalL, uniqueAddrs.size(), __coalHowManyAddrs, __tgtCoalL , __curCoalesceSize , MAX_COALESCING_SIZE);
-
 	start = beg_read_mtsp();
 
 	// Update the number of successes and failures to create a full coalesce
-	__coalSuccess += (__curCoalL == __tgtCoalL);
-	__coalFailed += (__curCoalL != __tgtCoalL);
+	__coalSuccess += (__curCoalL <= __tgtCoalL);
+	__coalFailed += (__curCoalL > __tgtCoalL);
 
 	coalescedTask->routine = executeCoalesced;
 	coalescedTask->metadata->coalesceSize = __curCoalesceSize;
@@ -403,7 +400,8 @@ void saveCoalesce() {
 }
 
 double howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-	if (taskSize.find(taskAddr) == taskSize.end()) return 99;
+	if (taskSize.find(taskAddr) == taskSize.end() || taskSize[taskAddr].first < MIN_SAMPLES_FOR_COALESCING) 
+		return 99;
 
 	auto rtlKey 	= ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
 	auto colKey 	= ((kmp_uint64) saveCoalesce ^ taskAddr);
@@ -423,10 +421,10 @@ double howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
 	else {
 		double l = (sti - m*co) / (m*ro);
 
-		if (l < 0.6) {
-			#ifdef DEBUG_COAL_MODE
+		if (l < 0.4) {
+//			#ifdef DEBUG_COAL_MODE
 				printf("[Coalesce] Impossible to amortize. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
-			#endif
+//			#endif
 			__coalImpossible++;
 			return 100;	// I am trying to not decrease parallelism here
 		}
@@ -550,10 +548,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 						prevRoutine = 0;
 					}
 					else if (__tgtCoalL == 100) {	// impossible
-#ifdef DEBUG_COAL_MODE
-						printf("Blacklisting task %llx\n", taskAddr);
-#endif
-						coalBlacklist.insert(taskAddr);
+//						coalBlacklist.insert(taskAddr);
 						addToTaskGraph(task);
 						prevRoutine = 0;
 					}
