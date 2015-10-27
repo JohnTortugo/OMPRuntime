@@ -19,7 +19,7 @@
 	#define KMP_TASKDATA_TO_TASK(taskdata) 		(kmp_task *) (taskdata + 1)
 
 
-	#define MAX_COALESCING_SIZE					  50
+	#define MAX_COALESCING_SIZE					  20
 	#define MIN_SAMPLES_FOR_COALESCING			   5
 
 

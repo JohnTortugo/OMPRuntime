@@ -39,8 +39,16 @@ char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 /// Variables related to the coalescing framework
 std::map<kmp_uint64, std::pair<kmp_uint64, double>> taskSize;
 std::map<kmp_uint64, bool> realTasks;
+
+std::set<kmp_uint64> coalBlacklist;
+
+std::set<kmp_uint64> uniqueAddrs;
+kmp_uint64 __coalHowManyAddrs=0;
+
+double __curCoalL = 0;
+double __tgtCoalL = 0;
 kmp_int16 __curCoalesceSize = 0;
-kmp_int16 __curTargetCoalescingSize = 0;
+kmp_task* coalescedTask = nullptr;
 
 kmp_int64 __coalNecessary = 0;
 kmp_int64 __coalUnnecessary = 0;
@@ -133,7 +141,6 @@ void debug() {
 	std::cout << "__mtsp_threadWait               => " << __mtsp_threadWait << std::endl;
 	std::cout << "__mtsp_threadWaitCounter        => " << __mtsp_threadWaitCounter<< std::endl;
 	std::cout << "__curCoalesceSize               => " << __curCoalesceSize << std::endl;
-	std::cout << "__curTargetCoalescingSize       => " << __curTargetCoalescingSize << std::endl;
 	std::cout << "freeSlots[0]                    => " << freeSlots[0] << std::endl;
 	std::cout << "submissionQueue.cur_load        => " << submissionQueue.cur_load() << std::endl;
 	std::cout << "RunQueue.cur_load               => " << RunQueue.cur_load() << std::endl;
@@ -164,7 +171,6 @@ int stick_this_thread_to_core(const char* const pref, int core_id) {
 void updateAverageTaskSize(kmp_uint64 taskAddr, double size) {
 	if (taskSize.find(taskAddr) == taskSize.end()) {
 		taskSize[taskAddr] = std::make_pair(1, size);
-		//printf("Average[%016llx] = %d %d %lf %lf\n", taskAddr, 0, 0, size, size);
 	}
 	else {
 		auto oldPair = taskSize[taskAddr];
@@ -174,7 +180,6 @@ void updateAverageTaskSize(kmp_uint64 taskAddr, double size) {
 
 		double newMed = (oldPair.first + 1) / sum;
 
-		//printf("Average[%016llx] = %llu %lf %lf %lf\n", taskAddr, oldPair.first, oldPair.second, size, newMed);
 		taskSize[taskAddr] = std::make_pair(oldPair.first+1, newMed);
 	}
 }
@@ -326,7 +331,7 @@ void __mtsp_RuntimeWorkSteal() {
 }
 
 
-void addCoalescedTask(kmp_task* coalescedTask) {
+void saveCoalesce() {
 	// Counter for the total cycles spent per task
 	unsigned long long start=0, end=0;
 
@@ -335,8 +340,8 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	start = beg_read_mtsp();
 
 	// Update the number of successes and failures to create a full coalesce
-	__coalSuccess += (__curCoalesceSize == __curTargetCoalescingSize);
-	__coalFailed += (__curCoalesceSize != __curTargetCoalescingSize);
+	__coalSuccess += (__curCoalL == __tgtCoalL);
+	__coalFailed += (__curCoalL != __tgtCoalL);
 
 	coalescedTask->routine = executeCoalesced;
 	coalescedTask->metadata->coalesceSize = __curCoalesceSize;
@@ -385,7 +390,7 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	end = end_read_mtsp();
 
 	// Does an XOR with the address of the coalesce routine and the address of the task
-	kmp_uint64 colKey = ((kmp_uint64) addCoalescedTask) ^ ((kmp_uint64) coalescedTask->metadata->coalesced[0]->routine);
+	kmp_uint64 colKey = ((kmp_uint64) saveCoalesce) ^ ((kmp_uint64) coalescedTask->metadata->coalesced[0]->routine);
 
 	updateAverageTaskSize(colKey, (end - start) / __curCoalesceSize);
 
@@ -394,62 +399,78 @@ void addCoalescedTask(kmp_task* coalescedTask) {
 	__itt_task_end(__itt_mtsp_domain);
 }
 
-kmp_int64 howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-	kmp_uint64 rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
-	kmp_uint64 colKey = ((kmp_uint64) addCoalescedTask ^ taskAddr);
+double howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
+	if (taskSize.find(taskAddr) == taskSize.end()) return 99;
 
-	double sti = taskSize[taskAddr].second;
-	double m   = __mtsp_numWorkerThreads;				/// Includes the runtime and the control
-	double ro  = 2 * taskSize[rtlKey].second; 			/// we double it because the stored value is average of add/del (not the sum) from TG
-	double co  = 0;
-	
-	if (taskSize.find(colKey) != taskSize.end()) {
-		co = taskSize[colKey].second;
-	}
-	else {
-		co = ro * 0.01;
-	}
+	auto rtlKey 	= ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
+	auto colKey 	= ((kmp_uint64) saveCoalesce ^ taskAddr);
 
+	double sti 		= taskSize[taskAddr].second;
+	double m   		= __mtsp_numWorkerThreads;				/// Includes the runtime and the control
+	double ro  		= 2 * taskSize[rtlKey].second; 			/// we double it because the stored value is average of add/del (not the sum) from TG
+	double co  		= (taskSize.find(colKey) != taskSize.end()) ? taskSize[colKey].second : ro * 0.01;
 
-	double num = (m * ro);
-	double den = (sti - m*co);
-
-	assert((num != 0 && den != 0) && "[Coalesce] Num or Den equals zero." && num && den);
-
-	double n = (m * ro) / (sti - m*co);
-
-	if (n <= 0) {
-#ifdef DEBUG_MODE
-		printf("[Coalesce] Impossible to amortize (%d). [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", MIN_SAMPLES_FOR_COALESCING, sti, m, ro, co, n);
-#endif
-		__coalImpossible++;
-		return MAX_COALESCING_SIZE;
-	}
-	else if (n < 2) {
-#ifdef DEBUG_MODE
-		printf("[Coalesce] No need for coalescing. [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", sti, m, ro, co, n);
-#endif
+	if (sti >= m*(co + ro)) {
+		#ifdef DEBUG_COAL_MODE
+				printf("[Coalesce] No need for coalescing. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co);
+		#endif
 		__coalUnnecessary++;
-		return 0;
-	}
-	else if (n > MAX_COALESCING_SIZE) {
-#ifdef DEBUG_MODE
-		printf("[Coalesce] CRITICAL: Need to coalesce more than the allocated space (%d). [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
-#endif
-		__coalOverflowed++;
-		return MAX_COALESCING_SIZE;
+		return 99;
 	}
 	else {
-#ifdef DEBUG_MODE
-		printf("[Coalesce] Should coalesce. (%d). [sti=%lf, m=%lf, ro=%lf, co=%lf, n=%lf]\n", MAX_COALESCING_SIZE, sti, m, ro, co, n);
-#endif
-		__coalNecessary++;
-		return ceil(n);
+		double l = (sti - m*co) / (m*ro);
+
+		if (l < 0) {
+			#ifdef DEBUG_COAL_MODE
+				printf("[Coalesce] Impossible to amortize. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
+			#endif
+			__coalImpossible++;
+			return 100;	// I am trying to not decrease parallelism here
+		}
+		else {
+			#ifdef DEBUG_COAL_MODE
+				printf("[Coalesce] Need for coalescing. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
+			#endif
+			__coalNecessary++;
+			return l;
+		}
 	}
 }
 
+inline bool hasPendingCoalesce() {
+	return (__curCoalesceSize > 0);
+}
+
+inline void restartCoalesce() {
+	__curCoalesceSize = 0;
+	__tgtCoalL = 100;
+	__coalHowManyAddrs=0;
+
+	uniqueAddrs.clear();
+
+	coalescedTask = new kmp_task();
+	coalescedTask->metadata = new _mtsp_task_metadata();
+	coalescedTask->metadata->coalesceSize = 0;
+}
 
 
+inline void increaseCoalesce(kmp_task* task) {
+	coalescedTask->metadata->coalesced[__curCoalesceSize] = task;
+	__curCoalesceSize++;
+
+	// Need to update the __curCoalL
+	for (int depIdx=0; depIdx<task->metadata->ndeps; depIdx++) {
+		uniqueAddrs.insert(task->metadata->dep_list[depIdx].base_addr);
+	}
+	__coalHowManyAddrs += task->metadata->ndeps;
+	__curCoalL = uniqueAddrs.size() / __coalHowManyAddrs;
+
+	// Did we reach the target of the linearity factor?
+	if (__curCoalL <= __tgtCoalL || __curCoalesceSize == MAX_COALESCING_SIZE) {
+		saveCoalesce();
+		restartCoalesce();
+	}
+}
 
 void* __mtsp_RuntimeThreadCode(void* params) {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//
@@ -461,10 +482,8 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	kmp_uint64 BatchSize = (64 - 1);	// should be 2^N - 1
 
 	// Used for task coalescing
-	__curCoalesceSize = 0;
-	__curTargetCoalescingSize = 0;
-	kmp_routine_entry prevRoutine = nullptr;
-	kmp_task* coalescedTask = nullptr;
+	restartCoalesce();
+	kmp_uint64 prevRoutine = 0;
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Main_Loop);
 	while (true) {
@@ -472,13 +491,19 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		// Check if the execution of a task has been completed
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Del);
 		if (RetirementQueue.try_deq(&task)) {
+			if (task->metadata->coalesceSize > 0) {
+				for (int idx=0; idx<task->metadata->coalesceSize; idx++) {
+					kmp_task* finTask = task->metadata->coalesced[idx];
 
-			if (task->metadata->coalesceSize <= 0) {
+					updateAverageTaskSize((kmp_uint64) finTask->routine, finTask->metadata->taskSize);
+				}
+			}
+			else {
 				updateAverageTaskSize((kmp_uint64) task->routine, task->metadata->taskSize);
 			}
-			/// If it is coalesced the size is updated when it executes
-
+			
 			removeFromTaskGraph(task);
+
 		}
 		__itt_task_end(__itt_mtsp_domain);
 
@@ -491,86 +516,53 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 			task->metadata->taskgraph_slot_id = freeSlots[ freeSlots[0] ];
 			freeSlots[0]--;
 
+			// This is the address of the new task
 			kmp_uint64 taskAddr = (kmp_uint64) task->routine;
 
-			// Did we increased the streak?
-			if (task->routine == prevRoutine) {
-				// Before anything save the task that we just got
-				coalescedTask->metadata->coalesced[__curCoalesceSize] = task;
-				__curCoalesceSize ++;
-
-				// Did we reach the maximum size of the coalescing? If yes, we create the
-				// coalesced task and reset the coalescing size
-				if (__curCoalesceSize >= __curTargetCoalescingSize) {
-					// create the coalesced task and add it to the task graph
-					addCoalescedTask(coalescedTask);
-
-					// restart coalescing
-					__curCoalesceSize = 0;
-					coalescedTask = new kmp_task();
-					coalescedTask->metadata = new _mtsp_task_metadata();
-					coalescedTask->metadata->coalesceSize = 0;
+			// If it is ignored for coalescing then we just add it to the graph
+			if (coalBlacklist.find(taskAddr) != coalBlacklist.end()) {
+				if (hasPendingCoalesce()) {
+					saveCoalesce();
+					restartCoalesce();
 				}
+
+				addToTaskGraph(task);
+				prevRoutine = 0;
 			}
 			else {
-				// The code enter heres the first time that we start to coalesce, because
-				/// prevRoutine == nullptr and task->routine is != nullptr.
-				// 
-				// The program also enters here when we need to start a new streak.
-
-
-				// Add the pending tasks to the Task Graph
-				if (__curCoalesceSize > 0) {
-					// create the coalesced task and add it to the task graph
-					addCoalescedTask(coalescedTask);
-
-					// restart coalescing
-					__curCoalesceSize = 0;
-					coalescedTask = new kmp_task();
-					coalescedTask->metadata = new _mtsp_task_metadata();
-					coalescedTask->metadata->coalesceSize = 0;
-				}
-
-				// If we did not execute this kind of task a sufficient number of times to
-				// determine an average size -> do not try any coalescing.
-				if (taskSize.find(taskAddr) == taskSize.end() || taskSize[taskAddr].first < MIN_SAMPLES_FOR_COALESCING) {
-					addToTaskGraph( task );
-					prevRoutine = nullptr;
+				if ((kmp_uint64) task->routine == prevRoutine) {
+					increaseCoalesce(task);
 				}
 				else {
-					// Ok, so we have sufficient information. If we are just starting a coalesce
-					// we need to determine the targetCoalesceSize.
-					__curTargetCoalescingSize = howManyShouldBeCoalesced(taskAddr);
+					if (hasPendingCoalesce()) {
+						saveCoalesce();
+						restartCoalesce();
+					}
 
-					if (__curTargetCoalescingSize == 0) {
-						addToTaskGraph( task );
-						coalescedTask = nullptr;
-						prevRoutine = nullptr;
-						__curCoalesceSize = 0;
+					__tgtCoalL = howManyShouldBeCoalesced(taskAddr);
 
-						//__mtsp_dumpTaskGraphToDot();
+					if (__tgtCoalL == 99) { // no need
+						addToTaskGraph(task);
+						prevRoutine = 0;
+					}
+					else if (__tgtCoalL == 100) {	// impossible
+#ifdef DEBUG_COAL_MODE
+						printf("Blacklisting task %llx\n", taskAddr);
+#endif
+						coalBlacklist.insert(taskAddr);
+						addToTaskGraph(task);
+						prevRoutine = 0;
 					}
 					else {
-						// start the new coalescing streak
-						coalescedTask = new kmp_task();
-						coalescedTask->metadata = new _mtsp_task_metadata();
-						coalescedTask->metadata->coalesced[0] = task;
-						__curCoalesceSize = 1;
-						prevRoutine = task->routine;
+						increaseCoalesce(task);
+						prevRoutine = taskAddr;
 					}
 				}
 			}
 		}
-		else if (freeSlots[0] == 0) {
-			if (__curCoalesceSize > 0) {
-				// create the coalesced task and add it to the task graph
-				addCoalescedTask(coalescedTask);
-
-				// restart coalescing
-				__curCoalesceSize = 0;
-				coalescedTask = new kmp_task();
-				coalescedTask->metadata = new _mtsp_task_metadata();
-			}
+		else if (freeSlots[0] == 0 && hasPendingCoalesce()) {
+			saveCoalesce();
+			restartCoalesce();
 		}
 
 		__itt_task_end(__itt_mtsp_domain);
@@ -585,13 +577,9 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		if ((iterations & BatchSize) == 0) {
 			submissionQueue.fsh();
 
-			if (__mtsp_threadWait && __curCoalesceSize > 0) {
-				// create the coalesced task and add it to the task graph
-				addCoalescedTask(coalescedTask);
-
-				// start the new coalescing streak
-				__curCoalesceSize =0;
-				prevRoutine = nullptr;
+			if (__mtsp_threadWait && hasPendingCoalesce()) {
+				saveCoalesce();
+				restartCoalesce();
 			}
 
 #ifdef MTSP_WORKSTEALING_RT

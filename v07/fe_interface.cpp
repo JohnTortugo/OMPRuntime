@@ -47,7 +47,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     	__mtsp_initialize();
     }
 
-	//__mtsp_reInitialize();
+//	__mtsp_reInitialize();
 	RELEASE(&__mtsp_lock_initialized);
 
 
@@ -250,7 +250,7 @@ void barrierFinishCode() {
 	for (auto& ts : realTasks) {
 		auto taskAddr = ts.first;
 		auto taskRtlAddr = (ts.first ^ (kmp_uint64) __mtsp_RuntimeThreadCode);
-		auto taskColAddr = (ts.first ^ (kmp_uint64) addCoalescedTask);
+		auto taskColAddr = (ts.first ^ (kmp_uint64) saveCoalesce);
 		auto taskMacAddr = (ts.first ^ (kmp_uint64) executeCoalesced);
 		auto taskRclAddr = (taskMacAddr ^ (kmp_uint64) __mtsp_RuntimeThreadCode);
 

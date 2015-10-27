@@ -17,6 +17,7 @@
 	#include <pthread.h>
 	#include <vector>
 	#include <map>
+	#include <set>
 	#include <utility>
 	#include <iostream>
 	#include <iomanip>
@@ -34,6 +35,7 @@
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
 //	#define DEBUG_MODE						1
+//	#define DEBUG_COAL_MODE					1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.
@@ -52,7 +54,7 @@
 	#define MTSP_DUMP_STATS					1
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		        512
+	#define MAX_TASKS 					     		        64
 	#define MAX_DEPENDENTS						  	  MAX_TASKS
 
 	/// Represents the maximum number of tasks in the Submission Queue
@@ -61,8 +63,8 @@
 	#define SUBMISSION_QUEUE_CF	  			   				 50
 
 	/// Represents the maximum number of tasks in the Run Queue
-	#define RUN_QUEUE_SIZE							  			  MAX_TASKS
-	#define RUN_QUEUE_CF			    					 			 50
+	#define RUN_QUEUE_SIZE							  MAX_TASKS
+	#define RUN_QUEUE_CF			    		 			 50
 
 	/// Represents the maximum number of tasks in the Retirement Queue
 	#define RETIREMENT_QUEUE_SIZE								4*MAX_TASKS
@@ -152,13 +154,26 @@
 	extern std::map<kmp_uint64, std::pair<kmp_uint64, double>> taskSize;
 	extern std::map<kmp_uint64, bool> realTasks;
 
+	// Tasks that have they address here will not be considered for coalescing anymore
+	extern std::set<kmp_uint64> coalBlacklist;
+
+	// This will store parameter addresses in order to compute how many
+	// unique addresses there are inside a coalesce
+	extern std::set<kmp_uint64> uniqueAddrs;
+	extern kmp_uint64 __coalHowManyAddrs;
+
+	// This is the task that store the coalesced subtasks
+	extern kmp_task* coalescedTask;
+
 	/// This is the size of the current coalescing being constructed.
 	extern kmp_int16 __curCoalesceSize;
 
-	/// This is the target size of the current coalescing. I.e., how many tasks should
-	/// be coalesced together to amortize the overhead.
-	extern kmp_int16 __curTargetCoalescingSize;
-	
+	// This is the current linearity factor
+	extern double __curCoalL;
+
+	// This is the target linearity factor
+	extern double __tgtCoalL;
+
 	/// the number of times that coalescing was deemed necessary. I.e., the system can
 	/// and should amortize the execution of tasks.
 	extern kmp_int64 __coalNecessary;
@@ -348,6 +363,6 @@
 	 *
 	 * @param coalescedTask		A pointer to the "artifical task" that will execute a group of subtasks that were coalesced together.
 	 */
-	void addCoalescedTask(kmp_task* coalescedTask);
+	void saveCoalesce();
 
 #endif

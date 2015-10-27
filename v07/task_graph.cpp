@@ -140,14 +140,13 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
 
 	// Counter for the total cycles spent per task
-	unsigned long long start=0, end=0;
+	kmp_uint64 start=0, end=0, rtlKey=0;
 	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
-	kmp_uint64 rtlKey = 0;
 
-	start = beg_read_mtsp();
-
-	if (finishedTask->metadata->coalesceSize <= 0) 
+	if (finishedTask->metadata->coalesceSize <= 0) {
+		start = beg_read_mtsp();
 		rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ (kmp_uint64) finishedTask->routine);
+	}
 
 	// Release the dependent tasks
 	int sz = dependents[idOfFinishedTask][0];
@@ -185,11 +184,11 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	// Decrement the number of tasks in the system currently
 	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
 
-	end = end_read_mtsp();
-
 	// Should be the average execution time be updated?
-	if (rtlKey != 0)
+	if (rtlKey != 0) {
+		end = end_read_mtsp();
 		updateAverageTaskSize(rtlKey, end - start);
+	}
 
 	__itt_task_end(__itt_mtsp_domain);
 }
@@ -203,10 +202,8 @@ void addToTaskGraph(kmp_task* newTask) {
 	unsigned long long start=0, end=0, update=0;
 	kmp_uint64 rtlKey = 0;
 
-	if (newTask->metadata->coalesceSize <= 0) 
+	if (newTask->metadata->coalesceSize <= 0) {
 		update=1;
-
-	if (update) {
 		start = beg_read_mtsp();
 		rtlKey = ((kmp_uint64) __mtsp_RuntimeThreadCode ^ (kmp_uint64) newTask->routine);
 	}

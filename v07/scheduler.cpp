@@ -38,14 +38,14 @@ int executeCoalesced(int notUsed, void* param) {
 	for (int i=0; i<coalescedTask->metadata->coalesceSize; i++) {
 		kmp_task* taskToExecute = coalescedTask->metadata->coalesced[i];
 
-		//start = beg_read_mtsp();
+		start = beg_read_mtsp();
 		(*(taskToExecute->routine))(0, taskToExecute);
-		//end = end_read_mtsp();
+		end = end_read_mtsp();
+		taskToExecute->metadata->taskSize = (end - start);
 
 #ifdef DEBUG_MODE
 		realTasks[(kmp_uint64) taskToExecute->routine] = true;
 #endif
-		//updateAverageTaskSize((kmp_uint64) taskToExecute->routine, end-start);
 	}
 
 	__itt_task_end(__itt_mtsp_domain);
