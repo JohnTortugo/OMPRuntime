@@ -35,7 +35,7 @@
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
 //	#define DEBUG_MODE						1
-//	#define DEBUG_COAL_MODE					1
+//  	#define DEBUG_COAL_MODE					1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.
@@ -54,7 +54,7 @@
 	#define MTSP_DUMP_STATS					1
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		        64
+	#define MAX_TASKS 					     		       512
 	#define MAX_DEPENDENTS						  	  MAX_TASKS
 
 	/// Represents the maximum number of tasks in the Submission Queue
@@ -160,7 +160,7 @@
 	// This will store parameter addresses in order to compute how many
 	// unique addresses there are inside a coalesce
 	extern std::set<kmp_uint64> uniqueAddrs;
-	extern kmp_uint64 __coalHowManyAddrs;
+	extern double __coalHowManyAddrs;
 
 	// This is the task that store the coalesced subtasks
 	extern kmp_task* coalescedTask;

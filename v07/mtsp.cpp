@@ -43,7 +43,7 @@ std::map<kmp_uint64, bool> realTasks;
 std::set<kmp_uint64> coalBlacklist;
 
 std::set<kmp_uint64> uniqueAddrs;
-kmp_uint64 __coalHowManyAddrs=0;
+double __coalHowManyAddrs=0;
 
 double __curCoalL = 0;
 double __tgtCoalL = 0;
@@ -337,6 +337,9 @@ void saveCoalesce() {
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Coalescing);
 
+
+		printf("Reached: curL=%lf {%d, %lf} tgtL=%lf curSize=%lld maxSize=%lld\n", __curCoalL, uniqueAddrs.size(), __coalHowManyAddrs, __tgtCoalL , __curCoalesceSize , MAX_COALESCING_SIZE);
+
 	start = beg_read_mtsp();
 
 	// Update the number of successes and failures to create a full coalesce
@@ -420,7 +423,7 @@ double howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
 	else {
 		double l = (sti - m*co) / (m*ro);
 
-		if (l < 0) {
+		if (l < 0.6) {
 			#ifdef DEBUG_COAL_MODE
 				printf("[Coalesce] Impossible to amortize. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
 			#endif
@@ -443,7 +446,7 @@ inline bool hasPendingCoalesce() {
 
 inline void restartCoalesce() {
 	__curCoalesceSize = 0;
-	__tgtCoalL = 100;
+//	__tgtCoalL = 100;
 	__coalHowManyAddrs=0;
 
 	uniqueAddrs.clear();
@@ -543,6 +546,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 
 					if (__tgtCoalL == 99) { // no need
 						addToTaskGraph(task);
+//						coalBlacklist.insert(taskAddr);
 						prevRoutine = 0;
 					}
 					else if (__tgtCoalL == 100) {	// impossible
