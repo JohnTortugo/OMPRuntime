@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <map>
 
 #include "pthread.h"
 #include "kmp.h"
@@ -100,6 +101,7 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
     task->shareds  = (sizeof_shareds > 0) ? &((char *) taskdata)[shareds_offset] : NULL;
     task->routine  = task_entry;
     task->metadata = (_mtsp_task_metadata*) &((char *) taskdata)[shareds_offset + sizeof_shareds];
+	task->metadata->globalTaskId = -1;
     task->metadata->metadata_slot_id = memorySlotId;
 
     __itt_task_end(__itt_mtsp_domain);
@@ -108,6 +110,17 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_With_Deps);
+
+#ifdef SUBQUEUE_PATTERN
+	static std::map<kmp_uint64, kmp_uint64> taskTypes;
+	static kmp_uint64 counter=0; 
+	kmp_uint64 addr = (kmp_uint64) new_task->routine;
+
+	if (taskTypes.find(addr) == taskTypes.end())
+		taskTypes[addr] = taskTypes.size();
+
+	printf("%llu %u\n", counter++, taskTypes[addr]);
+#endif
 
 	/// Ask to add this task to the task graph
 	__mtsp_addNewTask(new_task, ndeps, dep_list);
@@ -120,27 +133,45 @@ void steal_from_single_run_queue(bool just_a_bit) {
 	kmp_task* taskToExecute = nullptr;
 	kmp_uint16 myId = __mtsp_numWorkerThreads;
 
+	/// Counter for the total cycles spent per task
+	unsigned long long start=0, end=0;
+
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
 
 	while (true) {
 		if (just_a_bit) {
-			if (RunQueue.cur_load() < RunQueue.cont_load()) {
+			if (RunQueue.cur_load() < RunQueue.cont_load() && submissionQueue.cur_load() < submissionQueue.cont_load()) {
 				__itt_task_end(__itt_mtsp_domain);
-				break;
+				return;
 			}
 		}
 		else {
 			if (submissionQueue.cur_load() <= 0) {
 				__itt_task_end(__itt_mtsp_domain);
-				break;
+				return;
 			}
 		}
 
 		if (RunQueue.try_deq(&taskToExecute)) {
-			/// Start execution of the task
+
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+
+#ifdef MEASURE_TASK_SIZE
+			start = beg_read_mtsp();
+#endif
+
+			/// Start execution of the task
 			(*(taskToExecute->routine))(0, taskToExecute);
+
+#ifdef MEASURE_TASK_SIZE
+			end = end_read_mtsp();
+#endif
+
 			__itt_task_end(__itt_mtsp_domain);
+
+#ifdef MEASURE_TASK_SIZE
+			taskToExecute->metadata->taskSize = (end - start);
+#endif
 
 			tasksExecutedByCT++;
 
@@ -165,7 +196,6 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 #endif
 
 #ifdef TG_DUMP_MODE
-	/// delete: this is just to debug (temporarily)
 	while (submissionQueue.cur_load() > 0);
 	__mtsp_dumpTaskGraphToDot();
 	__mtsp_activate_workers = true;
@@ -195,6 +225,12 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 #ifdef MTSP_DUMP_STATS
 	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
 	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
+#endif
+
+#ifdef MEASURE_TASK_SIZE
+	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
+		printf("%d %llu\n", lastPrintedTaskId, taskSizes[lastPrintedTaskId]);
+	}
 #endif
 
 	__itt_task_end(__itt_mtsp_domain);
@@ -252,6 +288,12 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 #ifdef MTSP_DUMP_STATS
 	printf("%llu tasks were executed by the control thread.\n", tasksExecutedByCT);
 	printf("%llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
+#endif
+
+#ifdef MEASURE_TASK_SIZE
+	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
+		printf("%d %llu\n", lastPrintedTaskId, taskSizes[lastPrintedTaskId]);
+	}
 #endif
 
 	__itt_task_end(__itt_mtsp_domain);

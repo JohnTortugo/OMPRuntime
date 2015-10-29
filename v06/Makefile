@@ -2,11 +2,11 @@ SOURCES		= $(shell find $(SOURCEDIR) -maxdepth 1 -name '*.cpp')
 OBJS		= $(SOURCES:.cpp=.o) 
 LIB_NAME	= mtsp.so 
 
-SERRORS		= 
+SERRORS		= -Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value
 CFLAGS		= -g -std=c++11 -fpic $(SERRORS) -I/opt/intel/vtune_amplifier_xe_2015.3.0.403110/target/linux64/include/ 
-OPT_LVL		=
+OPT_LVL		= -O3
 
-mtsp: $(OBJS)
+mtsp: $(OBJS) CLANG_COMPLETE
 	g++ $(CFLAGS) $(OBJS) /opt/intel/vtune_amplifier_xe_2015.3.0.403110/lib64/libittnotify.a -shared -ldl -o $(LIB_NAME)
 
 install: $(LIB_NAME)
@@ -14,10 +14,21 @@ install: $(LIB_NAME)
 
 clean:
 	rm -rf $(OBJS) $(LIB_NAME)
-	
-remake:
+
+run: mtsp
+
+rebuild-run:
 	@make clean
-	@make
+	@make mtsp
 	
 %.o: %.cpp
 	g++ -c $(CFLAGS) $(OPT_LVL) $< -o $@
+
+
+###############################################################################
+######### This will update the .clang_complete file with all sources and CFLAGS
+CLANG_COMPLETE:
+	$(shell echo -std=c++11 > .clang_complete)
+	$(foreach src, $(SOURCES), $(shell echo -include $(src) >> .clang_complete))
+	$(foreach flg, $(CFLAGS), $(shell echo $(flg) >> .clang_complete))
+

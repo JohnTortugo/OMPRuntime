@@ -201,6 +201,14 @@ void __mtsp_initScheduler() {
 		pthread_create(&workerThreads[i], NULL, workerThreadCode, (void*)&workerThreadsIds[i]);
 	}
 
+	/// Initialize the steal status of the control and runtime thread
+	StealRequest[__mtsp_numWorkerThreads].first = false;
+	StealRequest[__mtsp_numWorkerThreads+1].first = false;
+	StealRequest[__mtsp_numWorkerThreads].second = -1;
+	StealRequest[__mtsp_numWorkerThreads+1].second = -1;
+	WaitingStealAnswer[__mtsp_numWorkerThreads] = false;
+	WaitingStealAnswer[__mtsp_numWorkerThreads+1] = false;
+
 #ifdef MTSP_WORK_DISTRIBUTION_FT
 	/// This is only necessary when we are using a "per finished token" work load distribution
 	finishedIDS[0] = MAX_TASKS;

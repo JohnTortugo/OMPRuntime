@@ -2,6 +2,7 @@
 #define MCRINGBUFFER_H_
 
 #include <stdio.h>
+#include <stdlib.h>
 
 /// for padding purposes
 #define L1D_LINE_SIZE 64

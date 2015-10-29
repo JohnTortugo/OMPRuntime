@@ -166,6 +166,38 @@ void __mtsp_FlushRunQueues() {
 	}
 }
 
+void __mtsp_RuntimeWorkSteal() {
+	kmp_task* taskToExecute = nullptr;
+
+	/// Counter for the total cycles spent per task
+	unsigned long long start=0, end=0;
+
+	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
+
+	while (RunQueue.cur_load() > RunQueue.cont_load()) {
+		if (RunQueue.try_deq(&taskToExecute)) {
+			/// Start execution of the task
+			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+			(*(taskToExecute->routine))(0, taskToExecute);
+			__itt_task_end(__itt_mtsp_domain);
+
+			tasksExecutedByRT++;
+
+			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
+#ifdef MTSP_MULTIPLE_RETIRE_QUEUES
+			RetirementQueues[myId].enq(taskToExecute);
+#else
+			RetirementQueue.enq(taskToExecute);
+#endif
+			__itt_task_end(__itt_mtsp_domain);
+		}
+	}
+
+	__itt_task_end(__itt_mtsp_domain);
+}
+
+
+
 void* __mtsp_RuntimeThreadCode(void* params) {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//
 	__itt_thread_set_name("MTSPRuntime");
@@ -197,6 +229,12 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		if ((iterations & 0xFF) == 0) {
 			__mtsp_FlushRunQueues();
 			submissionQueue.fsh();
+
+#ifdef MTSP_WORKSTEALING_RT
+			if (RunQueue.cur_load() > __mtsp_numWorkerThreads) {		// may be we should consider the CT also
+				__mtsp_RuntimeWorkSteal();
+			}
+#endif
 		}
 	}
 
