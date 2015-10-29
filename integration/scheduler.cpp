@@ -64,6 +64,7 @@ void __mtsp_enqueue_into_retirement_queue(unsigned long long int taskSlot) {
 
 void* workerThreadCode(void* params) {
 	kmp_task* taskToExecute = nullptr;
+	unsigned long long int packet = 0;
 	unsigned long long int taskSlot = 0;
 	kmp_uint64 tasksExecuted = 0;
 
@@ -72,8 +73,8 @@ void* workerThreadCode(void* params) {
 	kmp_uint16 myId 		= *tasksIdent;
 
 	while (true) {
-		if ( __mtsp_dequeue_from_run_queue(&taskSlot) ) {
-			taskSlot 	  = taskSlot & 0x3FFFFFFFFFFFF;
+		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
+			taskSlot 	  = packet & 0x3FFFFFFFFFFFF;
 			taskToExecute = tasks[taskSlot];
 
 			/// Start execution of the task
@@ -87,7 +88,7 @@ void* workerThreadCode(void* params) {
 			ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
 
 			/// Inform that this task has finished execution
-			__mtsp_enqueue_into_retirement_queue(taskSlot);
+			__mtsp_enqueue_into_retirement_queue(packet);
 		}
 		else {
 			/// has a barrier been activated?
