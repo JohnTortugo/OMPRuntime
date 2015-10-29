@@ -205,7 +205,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 	/// Send the packets for each parameter
 	for (kmp_int32 i=0; i<ndeps; i++) {
-		unsigned char mode = deps[i].flags.in | (deps[i].flags.out << 2);
+		unsigned char mode = deps[i].flags.in | (deps[i].flags.out << 1);
 
 		create_packet(subq_packet.payload, HWS_DEP_PACKET, mode, (i == ndeps-1), deps[i].base_addr);
 
