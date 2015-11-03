@@ -6,6 +6,10 @@ SERRORS		= -Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-functi
 CFLAGS		= -g -std=c++11 -Wall -Werror -fpic $(SERRORS)
 OPT_LVL		= -O3
 
+ifdef DBG
+	LINEAR_DEBUG = -DLINEAR_DEBUG
+endif
+
 mtsp: $(OBJS)
 	g++ $(OBJS) -shared -L./ -ltga -o $(LIB_NAME)
 
@@ -17,4 +21,4 @@ remake:
 	@make
 	
 %.o: %.cpp
-	g++ -c $(CFLAGS) $(OPT_LVL) $< -o $@
+	g++ -c $(CFLAGS) $(OPT_LVL) $< -o $@ $(LINEAR_DEBUG)

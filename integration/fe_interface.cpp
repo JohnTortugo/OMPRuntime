@@ -10,8 +10,6 @@
 #include "scheduler.h"
 
 
-#define LINEAR_DEBUG
-
 pthread_t hwsThread;
 bool __mtsp_initialized = false;
 
