@@ -20,7 +20,7 @@
 	#define	INTEL_NO_ITTNOFIFY_API	1
 
 	/// Work distribution in a round robin way
-	/// #define MTSP_WORK_DISTRIBUTION_RR		1
+	#define MTSP_WORK_DISTRIBUTION_RR		1
 
 	/// Work distribution based on a finish token
 	///#define MTSP_WORK_DISTRIBUTION_FT	1
@@ -35,19 +35,18 @@
 	///#define MTSP_MULTIPLE_RETIRE_QUEUES		1
 
 	/// Enable this define to use one submission queue per worker thread
-	/// #define MTSP_MULTIPLE_RUN_QUEUES 		1
+	#define MTSP_MULTIPLE_RUN_QUEUES 		1
 
 	/// Uncomment if you want the worker threads to steal work
-	#define MTSP_WORKSTEALING_WT			1
+	// #define MTSP_WORKSTEALING_WT			1
 
 	/// Uncomment if you want the CT to steal work
 	#define MTSP_WORKSTEALING_CT			1
 
-
 	/// Uncomment if you want the RT to steal work
-	#define MTSP_WORKSTEALING_RT			1
+	// #define MTSP_WORKSTEALING_RT			1
 
-	#define MTSP_DUMP_STATS					1
+	#define MTSP_DUMP_STATS				1
 
 
 

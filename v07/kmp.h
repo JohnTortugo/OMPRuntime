@@ -20,7 +20,8 @@
 
 
 	#define MAX_COALESCING_SIZE					  20
-	#define MIN_SAMPLES_FOR_COALESCING			   5
+	#define MIN_SAMPLES_FOR_COALESCING			  10
+	#define MIN_SAMPLES_AVERAGE					   3
 
 
 

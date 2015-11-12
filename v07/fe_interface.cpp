@@ -47,7 +47,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     	__mtsp_initialize();
     }
 
-//	__mtsp_reInitialize();
+	__mtsp_reInitialize();
 	RELEASE(&__mtsp_lock_initialized);
 
 
@@ -62,7 +62,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     (microtask)(&tid, &tid, argvcp[0]);
 
     // Comment below if you assume the compiler or the programmer added a #pragma taskwait at the end of parallel region.
-    __kmpc_omp_taskwait(nullptr, 0);
+      __kmpc_omp_taskwait(nullptr, 0);
     // printf("Expecting barrier....\n");
 
     __itt_task_end(__itt_mtsp_domain);
@@ -229,7 +229,7 @@ void barrierFinishCode() {
 #endif
 
 #ifdef MTSP_DUMP_STATS
-	printf("/ ---------------------------------------------------------------------------------\\\n");
+//	printf("/ ---------------------------------------------------------------------------------\\\n");
 
 #ifdef MTSP_WORKSTEALING_CT	
 	printf("| %llu tasks were executed by the control thread.\n", tasksExecutedByCT);
@@ -239,13 +239,14 @@ void barrierFinishCode() {
 	printf("| %llu tasks were executed by the runtime thread.\n\n", tasksExecutedByRT);
 #endif
 
-	printf("| Number of necessary coalesces %llu\n", __coalNecessary);
-	printf("| Number of unnecessary coalesces %llu\n", __coalUnnecessary);
-	printf("| Number of impossible coalesces %llu\n", __coalImpossible);
-	printf("| Number of overflowed coalesces %llu\n", __coalOverflowed);
-	printf("| Number of successfull coalesces %llu\n", __coalSuccess);
-	printf("| Number of failed coalesces %llu\n", __coalFailed);
-	printf("| \n");
+//	printf("| Number of necessary coalesces %llu\n", __coalNecessary);
+//	printf("| Number of unnecessary coalesces %llu\n", __coalUnnecessary);
+//	printf("| Number of impossible coalesces %llu\n", __coalImpossible);
+//	printf("| Number of overflowed coalesces %llu\n", __coalOverflowed);
+//	printf("| Number of successfull coalesces %llu\n", __coalSuccess);
+//	printf("| Number of failed coalesces %llu\n", __coalFailed);
+//	printf("| Number of real tasks %lu\n", realTasks.size());
+//	printf("| \n");
 
 	for (auto& ts : realTasks) {
 		auto taskAddr = ts.first;
@@ -254,32 +255,44 @@ void barrierFinishCode() {
 		auto taskMacAddr = (ts.first ^ (kmp_uint64) executeCoalesced);
 		auto taskRclAddr = (taskMacAddr ^ (kmp_uint64) __mtsp_RuntimeThreadCode);
 
+		// the number of times this type of task executed and its average execute time
 		auto tskTimes = taskSize[taskAddr].first;
 		auto tskAverage = taskSize[taskAddr].second;
 
+		// The number of times and the average cost the runtime expent to manage this type of task
 		auto rtlTimes = taskSize[taskRtlAddr].first;
-		auto rtlAverage = taskSize[taskRtlAddr].second;
+		auto rtlAverage = 2 * taskSize[taskRtlAddr].second;			 // doubled because we accumulate the individual average of add/rem from the TG
 
+		// The cost the runtime is paying to manage the coalesced task
 		auto rclTimes = taskSize[taskRclAddr].first;
 		auto rclAverage = taskSize[taskRclAddr].second;
 
+		// The number of times and average cost to coalesce tasks of this type
 		auto colTimes = taskSize[taskColAddr].first;
 		auto colAverage = taskSize[taskColAddr].second;
 
+		// The number of times and the average cost of the coalesced task of this type
 		auto macTimes = taskSize[taskMacAddr].first;
 		auto macAverage = taskSize[taskMacAddr].second;
 
 
-		std::cout << "| Task " 					 						 << std::hex << taskAddr << " executed " << std::dec << tskTimes << " times, taking on average " << tskAverage << " cycles to execute." << std::endl;
-		std::cout << "| \t" << std::setw(25) << "Runtime-Ind for Task "  << std::hex << taskAddr << " executed " << std::dec << rtlTimes << " times, taking on average " << rtlAverage << " cycles to execute." << std::endl;
-		std::cout << "| \t" << std::setw(25) << "Runtime-Col for Task "  << std::hex << taskAddr << " executed " << std::dec << rclTimes << " times, taking on average " << rclAverage << " cycles to execute." << std::endl;
-		std::cout << "| \t" << std::setw(25) << "Coalescing for Task "   << std::hex << taskAddr << " executed " << std::dec << colTimes << " times, taking on average " << colAverage << " cycles to execute." << std::endl;
-		std::cout << "| \t" << std::setw(25) << "Macrotask for Task "    << std::hex << taskAddr << " executed " << std::dec << macTimes << " times, taking on average " << macAverage << " cycles to execute." << std::endl;
+		std::cout << "Task " 	 		<< std::hex << taskAddr    << std::dec << " " << tskTimes << " " << tskAverage << std::endl;
+		std::cout << "Runtime-Ind "  	<< std::hex << taskRtlAddr << std::dec << " " << rtlTimes << " " << rtlAverage << std::endl;
+		std::cout << "Coalescing "   	<< std::hex << taskColAddr << std::dec << " " << colTimes << " " << colAverage << std::endl;
+
+
+		//std::cout << "| Task " 					 						 	<< std::hex << taskAddr << " executed " << std::dec << tskTimes << " times, taking on average " << tskAverage << " cycles to execute." << std::endl;
+		//std::cout << "| \t" << std::setw(25) << "Runtime-Ind ("  			<< std::hex << taskRtlAddr << ") executed " << std::dec << rtlTimes << " times, taking on average " << rtlAverage << " cycles to execute." << std::endl;
+		//std::cout << "| \t" << std::setw(25) << "Coalescing ("   			<< std::hex << taskColAddr << ") executed " << std::dec << colTimes << " times, taking on average " << colAverage << " cycles to execute." << std::endl;
+		//std::cout << "| \t" << std::setw(25) << "Macrotask ("    			<< std::hex << taskAddr << ") executed " << std::dec << macTimes << " times, taking on average " << macAverage << " cycles to execute." << std::endl;
+		//std::cout << "| \t" << std::setw(25) << "Runtime-Macro-Col ("  	<< std::hex << taskAddr << ") executed " << std::dec << rclTimes << " times, taking on average " << rclAverage << " cycles to execute." << std::endl;
 	}
 
-	printf("\\---------------------------------------------------------------------------------/\n\n\n");
+	//printf("\\---------------------------------------------------------------------------------/\n\n\n");
 
 #endif
+
+	__mtsp_reInitialize();
 
 	__itt_task_end(__itt_mtsp_domain);
 

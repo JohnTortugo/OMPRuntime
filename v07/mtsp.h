@@ -35,7 +35,7 @@
 
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
 //	#define DEBUG_MODE						1
-//  	#define DEBUG_COAL_MODE					1
+// 	#define DEBUG_COAL_MODE					1
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.

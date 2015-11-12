@@ -6,8 +6,8 @@ ifeq ($(HOSTNAME), Pequizeiro)
 	ITT_LIB=/opt/intel/vtune_amplifier_xe_2015.3.0.403110/lib64/libittnotify.a
 	ITT_INC=/opt/intel/vtune_amplifier_xe_2015.3.0.403110/target/linux64/include/
 else
-	ITT_LIB=/opt/intel/vtune_amplifier_xe_2015.3.0.403110/lib64/libittnotify.a
-	ITT_INC=/opt/intel/vtune_amplifier_xe_2015.3.0.403110/target/linux64/include/
+	ITT_LIB=/opt/intel/vtune_amplifier_xe_2015/lib64/libittnotify.a
+	ITT_INC=/opt/intel/vtune_amplifier_xe_2015.4.0.410668/include/
 endif
 
 SERRORS		= #-Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value

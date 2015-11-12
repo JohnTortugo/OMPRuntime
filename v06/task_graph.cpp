@@ -139,15 +139,18 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	/// Decrement the number of tasks in the system currently
 	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);
 
+
 	/// Release the dependent tasks
 	int sz = dependents[idOfFinishedTask][0];
 	for (int i=1; i<=sz; i++) {
 		int depId = dependents[idOfFinishedTask][i];
 		depCounters[depId]--;
 
+
 		// We reset the dependent status of the dependent task
 		// that is: depId no longer depends on idOfFinishedTask
 		whoIDependOn[depId][idOfFinishedTask] = false;
+
 
 		if (depCounters[depId] == 0) {
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);

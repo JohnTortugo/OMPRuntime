@@ -38,13 +38,13 @@
 //	#define	INTEL_NO_ITTNOFIFY_API			1
 
 	/// Uncomment if you want the CT to steal work
-//	#define MTSP_WORKSTEALING_CT			1
+	#define MTSP_WORKSTEALING_CT			1
 
 	/// Uncomment if you want the RT to steal work
-//	#define MTSP_WORKSTEALING_RT			1
+	#define MTSP_WORKSTEALING_RT			1
 
 	/// Uncomment if you want to see some statistics at the end of
-	#define MTSP_DUMP_STATS					1
+//	#define MTSP_DUMP_STATS					1
 
 
 

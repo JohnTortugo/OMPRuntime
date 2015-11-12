@@ -43,7 +43,7 @@ int executeCoalesced(int notUsed, void* param) {
 		end = end_read_mtsp();
 		taskToExecute->metadata->taskSize = (end - start);
 
-#ifdef DEBUG_MODE
+#ifdef MTSP_DUMP_STATS
 		realTasks[(kmp_uint64) taskToExecute->routine] = true;
 #endif
 	}
@@ -91,6 +91,13 @@ void* workerThreadCode(void* params) {
 
 			taskToExecute->metadata->taskSize = (end - start);
 
+#ifdef MTSP_DUMP_STATS
+			// If it is not a coalesced task then it is a original task (uncoalesced), we keep
+			// track of that for debug purposes.
+			if (taskToExecute->metadata->coalesceSize <= 0)
+				realTasks[(kmp_uint64) taskToExecute->routine] = true;
+#endif
+
 			// Inform that this task has finished execution
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 			RetirementQueue.enq(taskToExecute);
@@ -109,7 +116,7 @@ void* workerThreadCode(void* params) {
 					while (__mtsp_threadWait);
 
 #ifdef MTSP_DUMP_STATS
-					printf("%llu tasks were executed by thread %d.\n", tasksExecuted, myId);
+//					printf("%llu tasks were executed by thread %d.\n", tasksExecuted, myId);
 #endif
 
 					// Says that the current thread have visualized the previous update to threadWait

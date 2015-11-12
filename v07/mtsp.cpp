@@ -169,19 +169,30 @@ int stick_this_thread_to_core(const char* const pref, int core_id) {
 }
 
 void updateAverageTaskSize(kmp_uint64 taskAddr, double size) {
+	double newMed=0, sum=0;
+
 	if (taskSize.find(taskAddr) == taskSize.end()) {
 		taskSize[taskAddr] = std::make_pair(1, size);
+	}
+	else if (taskSize[taskAddr].first < MIN_SAMPLES_AVERAGE) {
+		taskSize[taskAddr].first++;
+
+		if (taskSize[taskAddr].first == MIN_SAMPLES_AVERAGE) {
+			taskSize[taskAddr].second = size;
+		}
 	}
 	else {
 		auto oldPair = taskSize[taskAddr];
 
-		double  sum = oldPair.first / oldPair.second;
+		sum = oldPair.first / oldPair.second;
 				sum += 1.0 / size;
 
-		double newMed = (oldPair.first + 1) / sum;
+		newMed = (oldPair.first + 1) / sum;
 
 		taskSize[taskAddr] = std::make_pair(oldPair.first+1, newMed);
 	}
+
+	//printf("UATS: %llx -> %lf [%lf]\n", taskAddr, size, newMed);
 }
 
 void __mtsp_reInitialize() {
@@ -195,7 +206,7 @@ void __mtsp_reInitialize() {
 	/// The size of the tasks is reset every time we enter a new parallel region
    	taskSize.clear();
 
-#ifdef DEBUG_MODE
+#ifdef MTSP_DUMP_STATS
 	realTasks.clear();
 #endif
 }
@@ -400,42 +411,44 @@ void saveCoalesce() {
 }
 
 double howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-	if (taskSize.find(taskAddr) == taskSize.end() || taskSize[taskAddr].first < MIN_SAMPLES_FOR_COALESCING) 
+//	if (taskSize.find(taskAddr) == taskSize.end() || taskSize[taskAddr].first < MIN_SAMPLES_FOR_COALESCING) 
 		return 99;
+//	else
+//		return 50;
 
-	auto rtlKey 	= ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
-	auto colKey 	= ((kmp_uint64) saveCoalesce ^ taskAddr);
-
-	double sti 		= taskSize[taskAddr].second;
-	double m   		= __mtsp_numWorkerThreads;				/// Includes the runtime and the control
-	double ro  		= 2 * taskSize[rtlKey].second; 			/// we double it because the stored value is average of add/del (not the sum) from TG
-	double co  		= (taskSize.find(colKey) != taskSize.end()) ? taskSize[colKey].second : ro * 0.01;
-
-	if (sti >= m*(co + ro)) {
-		#ifdef DEBUG_COAL_MODE
-				printf("[Coalesce] No need for coalescing. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co);
-		#endif
-		__coalUnnecessary++;
-		return 99;
-	}
-	else {
-		double l = (sti - m*co) / (m*ro);
-
-		if (l < 0.4) {
+//	auto rtlKey 	= ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
+//	auto colKey 	= ((kmp_uint64) saveCoalesce ^ taskAddr);
+//
+//	double sti 		= taskSize[taskAddr].second;
+//	double m   		= __mtsp_numWorkerThreads;				/// Includes the runtime and the control
+//	double ro  		= 2 * taskSize[rtlKey].second; 			/// we double it because the stored value is average of add/del (not the sum) from TG
+//	double co  		= (taskSize.find(colKey) != taskSize.end()) ? taskSize[colKey].second : ro * 0.01;
+//
+//	if (sti >= m*(co + ro)) {
+//		#ifdef DEBUG_COAL_MODE
+//				printf("[Coalesce] No need for coalescing. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co);
+//		#endif
+//		__coalUnnecessary++;
+//		return 99;
+//	}
+//	else {
+//		double l = (sti - m*co) / (m*ro);
+//
+//		if (l < 0.4) {
 //			#ifdef DEBUG_COAL_MODE
-				printf("[Coalesce] Impossible to amortize. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
+//				printf("[Coalesce] Impossible to amortize. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
 //			#endif
-			__coalImpossible++;
-			return 100;	// I am trying to not decrease parallelism here
-		}
-		else {
-			#ifdef DEBUG_COAL_MODE
-				printf("[Coalesce] Need for coalescing. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
-			#endif
-			__coalNecessary++;
-			return l;
-		}
-	}
+//			__coalImpossible++;
+//			return 100;	// I am trying to not decrease parallelism here
+//		}
+//		else {
+//			#ifdef DEBUG_COAL_MODE
+//				printf("[Coalesce] Need for coalescing. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
+//			#endif
+//			__coalNecessary++;
+//			return l;
+//		}
+//	}
 }
 
 inline bool hasPendingCoalesce() {
