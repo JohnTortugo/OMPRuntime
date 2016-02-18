@@ -4,6 +4,7 @@
 #include "kmp.h"
 #include "hws.h"
 #include "ThreadedQueue.h"
+#include "utility.h"
 #include <pthread.h>
 
 /// Tells the maximum number of (!!)Bytes(!!) in the submission, run and retirement queue
@@ -11,6 +12,7 @@
 #define SUBMISSION_QUEUE_SIZE			 	(MAX_TASKS * 8)
 #define RUN_QUEUE_SIZE						(MAX_TASKS * 8)
 #define RETIREMENT_QUEUE_SIZE				(MAX_TASKS * 8)
+#define PRINT_PACKETS
 
 
 

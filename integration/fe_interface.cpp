@@ -194,6 +194,11 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 #ifdef LINEAR_DEBUG
 	printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue.\n", number_of_task_descriptors_sent++);
 #endif
+#ifdef PRINT_PACKETS
+	//printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue:", number_of_task_descriptors_sent++);
+	print_num_in_chars(subq_packet.payload);
+	//printf("\n");
+#endif
 	
 	__mtsp_enqueue_into_submission_queue(subq_packet.payload);
 
@@ -209,6 +214,11 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 #ifdef LINEAR_DEBUG
 	printf("[mtsp_bridge:]\tSending dependence descriptor #%d to the submission queue.\n", number_of_dependence_descriptors_sent++);
+#endif
+#ifdef PRINT_PACKETS
+	//printf("[mtsp_bridge:]\tSending dependence descriptor #%d to the submission queue:", number_of_dependence_descriptors_sent++);
+	print_num_in_chars(subq_packet.payload);
+	//printf("\n");
 #endif
 
 		__mtsp_enqueue_into_submission_queue(subq_packet.payload);
@@ -246,7 +256,9 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 
 
 kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
+#ifdef LINEAR_DEBUG
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
+#endif
     return 0;
 }
 
@@ -254,7 +266,9 @@ kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
 
 
 kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
+#ifdef LINEAR_DEBUG
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
+#endif
     return 1;
 }
 
@@ -285,7 +299,9 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 
 
 kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
+#ifdef LINEAR_DEBUG
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
+#endif
 	return 1;
 }
 
@@ -293,12 +309,16 @@ kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
 
 
 void __kmpc_end_master(ident* loc, kmp_int32 gtid) {
+#ifdef LINEAR_DEBUG
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
+#endif
 }
 
 
 
 int omp_get_num_threads() {
+#ifdef LINEAR_DEBUG
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
+#endif
 	return 0;
 }
