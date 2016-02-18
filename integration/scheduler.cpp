@@ -20,7 +20,19 @@ bool 			volatile __ret_queue_lock			= UNLOCKED;
 
 
 
-bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload) {
+bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload)
+	/// By default, this function tries to dequeue packets
+	/// from the first run queue.
+	if (tga_runq_can_deq(0))
+	{
+			*payload = tga_runq_raw_deq(0);
+
+		return true;
+	}
+	else
+		return false;
+
+	/*
 	if (TRY_ACQUIRE(&__run_queue_lock)) {
 		if (__mtsp_RunQueueDesc->QHead != __mtsp_RunQueueDesc->QTail) {
 			struct SQPacket* pos = (struct SQPacket*) (__mtsp_RunQueueDesc->base_address + __mtsp_RunQueueDesc->QHead);
@@ -43,9 +55,12 @@ bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload) {
 	}
 
 	return false;
+	*/
 }
 
 void __mtsp_enqueue_into_retirement_queue(unsigned long long int taskSlot) {
+	
+/*
 	ACQUIRE(&__ret_queue_lock);
 
 	while (((__mtsp_RetirementQueueDesc->QTail + (int)sizeof(struct SQPacket)) % __mtsp_RetirementQueueDesc->QSize) == __mtsp_RetirementQueueDesc->QHead);
@@ -60,6 +75,7 @@ void __mtsp_enqueue_into_retirement_queue(unsigned long long int taskSlot) {
 	freeSlots.enq(taskSlot);
 
 	RELEASE(&__ret_queue_lock);
+*/
 }
 
 void* workerThreadCode(void* params) {

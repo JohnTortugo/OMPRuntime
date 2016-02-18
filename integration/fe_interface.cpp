@@ -22,6 +22,11 @@ SPSCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
 
 
 void __mtsp_bridge_init() {
+
+	//1a: This initializes the auxiliary TGA library
+	tga_init();	
+
+	/*
 	QDescriptor* QSBase = (struct QDescriptor*) malloc(3 * sizeof(QDescriptor));
 
 	__mtsp_SubmissionQueueDesc 	= &QSBase[0];
@@ -109,11 +114,17 @@ void __mtsp_bridge_init() {
 
 	/// Create worker threads
 	__mtsp_initScheduler();
+	*/
 }
 
 
 
 void __mtsp_enqueue_into_submission_queue(unsigned long long packet) {
+	while(!tga_subq_can_enq());
+
+	tga_subq_enq(packet);
+
+	/*
 	while (((__mtsp_SubmissionQueueDesc->QTail + (int)sizeof(struct SQPacket)) % __mtsp_SubmissionQueueDesc->QSize) == __mtsp_SubmissionQueueDesc->QHead);
 
 	struct SQPacket* pos = (struct SQPacket*) (__mtsp_SubmissionQueueDesc->base_address + __mtsp_SubmissionQueueDesc->QTail);
@@ -122,9 +133,7 @@ void __mtsp_enqueue_into_submission_queue(unsigned long long packet) {
 	if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP - SUBQ] Packet with payload [%llx] going to index %02ld of subq, address %p\n" ANSI_COLOR_RESET, packet, __mtsp_SubmissionQueueDesc->QTail, pos);
 
 	__mtsp_SubmissionQueueDesc->QTail = (__mtsp_SubmissionQueueDesc->QTail + sizeof(struct SQPacket)) % __mtsp_SubmissionQueueDesc->QSize;
-	//ringDoorbell(1);
-	//play_doorbell();
-	//place_doorbell();
+	*/
 }
 
 
