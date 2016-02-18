@@ -21,6 +21,7 @@ bool 			volatile __ret_queue_lock			= UNLOCKED;
 
 
 bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload)
+{
 	/// By default, this function tries to dequeue packets
 	/// from the first run queue.
 	if (tga_runq_can_deq(0))

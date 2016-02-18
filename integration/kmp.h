@@ -2,6 +2,7 @@
 	#define __MTSP_KMP_HEADER 1
 
 	#include <stddef.h>
+	#include <tioglib.h>
 
 	//===----------------------------------------------------------------------===//
 	//
