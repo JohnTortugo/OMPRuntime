@@ -60,7 +60,7 @@ bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload)
 }
 
 void __mtsp_enqueue_into_retirement_queue(unsigned long long int taskSlot) {
-	
+	tga_retq_enq(taskSlot);
 /*
 	ACQUIRE(&__ret_queue_lock);
 
