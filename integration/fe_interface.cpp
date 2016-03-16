@@ -9,6 +9,7 @@
 #include "fe_interface.h"
 #include "scheduler.h"
 
+volatile char hws_alive;
 
 pthread_t hwsThread;
 bool __mtsp_initialized = false;
@@ -256,7 +257,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	/// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
 
-	hws_alive = false;
+	//hws_alive = false;
 
 	return 0;
 }
@@ -301,7 +302,7 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 	/// updated value of threadWait
 	while (__mtsp_threadWaitCounter != 0);
 
-	hws_alive = false;
+	//hws_alive = false;
 }
 
 

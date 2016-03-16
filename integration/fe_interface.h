@@ -50,7 +50,7 @@ extern void place_doorbell();
 /**
  * Tells whether hws is alive or not.
  */
-extern volatile char hws_alive;
+//extern volatile char hws_alive;
 
 
 /**
