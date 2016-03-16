@@ -11,8 +11,14 @@ ifdef DBG
 	LINEAR_DEBUG = -DLINEAR_DEBUG
 endif
 
+ifeq ($(ARCH),arm)
+CC	= arm-linux-gnueabihf-g++-5 -mcpu=cortex-a9
+else
+CC	= g++
+endif
+
 mtsp: $(OBJS)
-	g++ $(OBJS) $(INCLUDES) -shared -L./ -ltga -ltioga -o $(LIB_NAME)
+	$(CC) $(OBJS) $(INCLUDES) -shared -L./ -ltioga -o $(LIB_NAME)
 
 clean:
 	rm -rf $(OBJS) $(LIB_NAME)
@@ -22,4 +28,4 @@ remake:
 	@make
 	
 %.o: %.cpp
-	g++ -c $(CFLAGS) $(INCLUDES) $(OPT_LVL) $< -o $@ $(LINEAR_DEBUG)
+	$(CC) -c $(CFLAGS) $(INCLUDES) $(OPT_LVL) $< -o $@ $(LINEAR_DEBUG)
