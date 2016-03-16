@@ -97,6 +97,7 @@ void __mtsp_bridge_init() {
 	printf("QH = %ld\n", __mtsp_RetirementQueueDesc->QHead);
 	printf("QT = %ld\n", __mtsp_RetirementQueueDesc->QTail);
 
+	*/
 
 	/// Initialize structures to store task metadata
 	for (int i=0; i<MAX_TASKS; i++) {
@@ -104,7 +105,7 @@ void __mtsp_bridge_init() {
 		freeSlots.enq(i);
 	}
 
-
+	/*
 
 
 	/// Create the thread where the systemc (HWS) module will execute

@@ -72,9 +72,9 @@ void __mtsp_enqueue_into_retirement_queue(unsigned long long int taskSlot) {
 	if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP - RETQ] Packet with payload [%llx] going to index %02ld of retq, address %p\n" ANSI_COLOR_RESET, taskSlot, __mtsp_RetirementQueueDesc->QTail, pos);
 
 	__mtsp_RetirementQueueDesc->QTail = (__mtsp_RetirementQueueDesc->QTail + sizeof(struct SQPacket)) % __mtsp_RetirementQueueDesc->QSize;
-
+*/
 	freeSlots.enq(taskSlot);
-
+/*
 	RELEASE(&__ret_queue_lock);
 */
 }
