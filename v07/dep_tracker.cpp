@@ -12,7 +12,9 @@ std::map<kmp_intptr, std::pair<kmp_int32, std::vector<kmp_int32>>> dependenceTab
 
 
 void releaseDependencies(kmp_int16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dependences);
+#endif
 
 	// Iterate over each dependence and check if the task ID of the last task accessing that address
 	// is the ID of the finished task. If it is remove that entry, otherwise do nothing.
@@ -30,7 +32,9 @@ void releaseDependencies(kmp_int16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depen
 				}
 			}
 			else {
+#ifdef __VTPROF
 				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dep_Reader);
+#endif
 
 				for (int idxPos=0; idxPos<dependenceTable[baseAddr].second.size(); idxPos++) {
 					if (dependenceTable[baseAddr].second[idxPos] == idOfFinishedTask) {
@@ -39,7 +43,9 @@ void releaseDependencies(kmp_int16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depen
 					}
 				}
 
+#ifdef __VTPROF
 				__itt_task_end(__itt_mtsp_domain);
+#endif
 			}
 
 			// If that address does not have more producers/writers we remove it from the hash
@@ -50,11 +56,15 @@ void releaseDependencies(kmp_int16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depen
 		}
 	}
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, kmp_depend_info* depList) {
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Checking_Dependences);
+#endif
 
 	kmp_uint64 depCounter = 0;
 
@@ -168,6 +178,8 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 		dependenceTable[baseAddr] = hashValue;
 	}
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 	return depCounter;
 }

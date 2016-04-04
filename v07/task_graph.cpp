@@ -137,7 +137,9 @@ void __mtsp_initializeTaskGraph() {
 
 
 void removeFromTaskGraph(kmp_task* finishedTask) {
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
+#endif
 
 	// Counter for the total cycles spent per task
 	kmp_uint64 start=0, end=0, rtlKey=0;
@@ -159,9 +161,13 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 		whoIDependOn[depId][idOfFinishedTask] = false;
 
 		if (depCounters[depId] == 0) {
+#ifdef __VTPROF
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
+#endif
 			RunQueue.enq( tasks[depId] );
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 		}
 	}
 
@@ -190,13 +196,17 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 		updateAverageTaskSize(rtlKey, end - start);
 	}
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 
 
 void addToTaskGraph(kmp_task* newTask) {
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Add);
+#endif
 
 	// Counter for the total cycles spent per task
 	unsigned long long start=0, end=0, update=0;
@@ -226,9 +236,13 @@ void addToTaskGraph(kmp_task* newTask) {
 
 	// if the task has depPattern == 0 then it may already be dispatched.
 	if (depCounter == 0) {
+#ifdef __VTPROF
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
+#endif
 		RunQueue.enq( newTask );
+#ifdef __VTPROF
 		__itt_task_end(__itt_mtsp_domain);
+#endif
 	}
 
 	if (update) {
@@ -236,7 +250,9 @@ void addToTaskGraph(kmp_task* newTask) {
 		updateAverageTaskSize(rtlKey, end - start);
 	}
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 

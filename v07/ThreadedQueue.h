@@ -76,18 +76,24 @@ public:
 	 * @param elem 		The element to be added to the queue.
 	 */
 	void enq(T elem) {
+#ifdef __VTPROF
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Enq);
+#endif
 
 		int afterNextWrite = nextWrite + 1;
 			afterNextWrite &= (QUEUE_SIZE - 1);
 
 		if (afterNextWrite == localRead) {
+#ifdef __VTPROF
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Enq_Blocking);
+#endif
 
 			while (afterNextWrite == read) ;
 			localRead = read;
 
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 		}
 
 		elems[nextWrite] = elem;
@@ -97,7 +103,9 @@ public:
 		if ((nextWrite & (BATCH_SIZE-1)) == 0)
 			write = nextWrite;
 
+#ifdef __VTPROF
 		__itt_task_end(__itt_mtsp_domain);
+#endif
 	}
 
 	/** 
@@ -116,17 +124,23 @@ public:
 	 * @return	The element from the front of the queue.
 	 */
 	T deq() {
+#ifdef __VTPROF
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Deq);
+#endif
 
 		if (nextRead == localWrite) {
+#ifdef __VTPROF
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_SPSC_Deq_Blocking);
+#endif
 
 			//printf("Blocked, but Will not steal: cur_load = %d, cont_load = %d\n", cur_load(), cont_load());
 
 			while (nextRead == write) ;
 			localWrite = write;
 
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 		}
 
 		T data	= elems[nextRead];
@@ -137,7 +151,9 @@ public:
 		if ((nextRead & (BATCH_SIZE-1)) == 0)
 			read = nextRead;
 
+#ifdef __VTPROF
 		__itt_task_end(__itt_mtsp_domain);
+#endif
 		return data;
 	}
 

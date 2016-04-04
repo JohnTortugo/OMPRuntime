@@ -42,7 +42,9 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     	__mtsp_Single = false;
 
     	//===-------- The thread that initialize the runtime is the Control Thread ----------===//
+#ifdef __VTPROF
     	__itt_thread_set_name("ControlThread");
+#endif
 
     	__mtsp_initialize();
     }
@@ -56,7 +58,9 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     for(i=0; i < argc; i++) { *argv++ = va_arg(ap, void *); }
 	va_end(ap);
 
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Fork_Call);
+#endif
 
 	// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
     (microtask)(&tid, &tid, argvcp[0]);
@@ -65,7 +69,9 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     __kmpc_omp_taskwait(nullptr, 0);
     // printf("Expecting barrier....\n");
 
+#ifdef __VTPROF
     __itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int16* memorySlotId) {
@@ -98,7 +104,9 @@ kmp_taskdata* allocateTaskData(kmp_uint32 numBytes, kmp_int16* memorySlotId) {
 }
 
 kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task_t, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry) {
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_Alloc);
+#endif
 
 	kmp_uint32 shareds_offset  = sizeof(kmp_taskdata) + sizeof_kmp_task_t;
 	kmp_int32 sizeOfMetadata = sizeof(mtsp_task_metadata);
@@ -115,12 +123,16 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 	task->metadata->coalesceSize = 0;
     task->metadata->metadata_slot_id = memorySlotId;
 
+#ifdef __VTPROF
     __itt_task_end(__itt_mtsp_domain);
+#endif
     return task;
 }
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_With_Deps);
+#endif
 
 #ifdef SUBQUEUE_PATTERN
 	static std::map<kmp_uint64, kmp_uint64> taskTypes;
@@ -136,7 +148,9 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	// Ask to add this task to the task graph
 	__mtsp_addNewTask(new_task, ndeps, dep_list);
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 	return 0;
 }
 
@@ -147,25 +161,33 @@ void steal_from_single_run_queue(bool just_a_bit) {
 	// Counter for the total cycles spent per task
 	unsigned long long start=0, end=0;
 
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
+#endif
 
 	while (true) {
 		if (just_a_bit) {
 			if (RunQueue.cur_load() < RunQueue.cont_load() && submissionQueue.cur_load() < submissionQueue.cont_load()) {
+#ifdef __VTPROF
 				__itt_task_end(__itt_mtsp_domain);
+#endif
 				return;
 			}
 		}
 		else {
 			if (RunQueue.cur_load() < RunQueue.cont_load() && submissionQueue.cur_load() <= 0) {
+#ifdef __VTPROF
 				__itt_task_end(__itt_mtsp_domain);
+#endif
 				return;
 			}
 		}
 
 		if (RunQueue.try_deq(&taskToExecute)) {
 
+#ifdef __VTPROF
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+#endif
 
 			start = beg_read_mtsp();
 
@@ -174,25 +196,35 @@ void steal_from_single_run_queue(bool just_a_bit) {
 
 			end = end_read_mtsp();
 
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 
 			taskToExecute->metadata->taskSize = (end - start);
 
 			tasksExecutedByCT++;
 
 			/// Inform that this task has finished execution
+#ifdef __VTPROF
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
+#endif
 			RetirementQueue.enq(taskToExecute);
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 		}
 	}
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 
 void barrierFinishCode() {
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Barrier_Wait);
+#endif
 
 	// Flush the current state of the submission queues..
 	submissionQueue.fsh();
@@ -281,7 +313,9 @@ void barrierFinishCode() {
 
 #endif
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 
 }
 

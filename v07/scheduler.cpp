@@ -33,7 +33,9 @@ int executeCoalesced(int notUsed, void* param) {
 
 	kmp_uint64 start, end;
 
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Coal_In_Execution);
+#endif
 
 	for (int i=0; i<coalescedTask->metadata->coalesceSize; i++) {
 		kmp_task* taskToExecute = coalescedTask->metadata->coalesced[i];
@@ -48,7 +50,9 @@ int executeCoalesced(int notUsed, void* param) {
 #endif
 	}
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 void* workerThreadCode(void* params) {
@@ -61,7 +65,9 @@ void* workerThreadCode(void* params) {
 
 	// The thread that initialize the runtime is the Control Thread
 	sprintf(taskName, "WorkerThread-%02d", myId);
+#ifdef __VTPROF
 	__itt_thread_set_name(taskName);
+#endif
 
 	// Stick this thread to execute on the "Core X"
 	stick_this_thread_to_core(taskName, *tasksIdent);
@@ -78,30 +84,42 @@ void* workerThreadCode(void* params) {
 #endif
 
 		if (RunQueue.try_deq(&taskToExecute)) {
+#ifdef __VTPROF
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+#endif
 
 			// Start execution of the task
 			start = beg_read_mtsp();
 			(*(taskToExecute->routine))(0, taskToExecute);
 			end = end_read_mtsp();
 
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 
 			tasksExecuted++;
 
 			taskToExecute->metadata->taskSize = (end - start);
 
 			// Inform that this task has finished execution
+#ifdef __VTPROF
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
+#endif
 			RetirementQueue.enq(taskToExecute);
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 		}
 		else {
+#ifdef __VTPROF
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Wait_For_Work);
+#endif
 			// has a barrier been activated?
 			if (__mtsp_threadWait == true) {
 				if (__mtsp_inFlightTasks == 0) {
+#ifdef __VTPROF
 					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Barrier);
+#endif
 
 					ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
 
@@ -115,10 +133,14 @@ void* workerThreadCode(void* params) {
 					// Says that the current thread have visualized the previous update to threadWait
 					ATOMIC_SUB(&__mtsp_threadWaitCounter, 1);
 
+#ifdef __VTPROF
 					__itt_task_end(__itt_mtsp_domain);
+#endif
 				}
 			}
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 		}
 	}
 

@@ -62,6 +62,7 @@ kmp_int64 __coalFailed = 0;
 
 
 //===-------- VTune/libittnotify related stuff ----------===//
+#ifdef __VTPROF
 __itt_domain* 		volatile __itt_mtsp_domain = nullptr;
 __itt_string_handle* volatile __itt_CT_Fork_Call = nullptr;
 __itt_string_handle* volatile __itt_Run_Queue_Dequeue = nullptr;
@@ -97,6 +98,7 @@ __itt_string_handle* volatile __itt_RT_Main_Loop = nullptr;
 __itt_string_handle* volatile __itt_RT_Check_Del = nullptr;
 __itt_string_handle* volatile __itt_RT_Check_Add = nullptr;
 __itt_string_handle* volatile __itt_RT_Check_Oth = nullptr;
+#endif
 
 extern void steal_from_single_run_queue(bool just_a_bit);
 extern void steal_from_multiple_run_queue(bool just_a_bit);
@@ -201,6 +203,7 @@ void __mtsp_reInitialize() {
 }
 
 void __mtsp_initialize() {
+#ifdef __VTPROF
 	__itt_mtsp_domain = __itt_domain_create("MTSP");
 	__itt_CT_Fork_Call = __itt_string_handle_create("CT_Fork_Call");
 	__itt_Run_Queue_Dequeue = __itt_string_handle_create("Run_Queue_Dequeue");
@@ -237,6 +240,7 @@ void __mtsp_initialize() {
 	__itt_RT_Check_Del = __itt_string_handle_create("RT_Check_Del");
 	__itt_RT_Check_Add = __itt_string_handle_create("RT_Check_Add");
 	__itt_RT_Check_Oth = __itt_string_handle_create("RT_Check_Oth");
+#endif
 
 
 
@@ -256,7 +260,9 @@ void __mtsp_initialize() {
 }
 
 void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Enqueue);
+#endif
 
 #ifdef MTSP_WORKSTEALING_CT
 	// The CT is trying to submit work but the queue is full. The CT will then
@@ -275,7 +281,9 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 
 	// TODO: Can we improve this?
 	{
+#ifdef __VTPROF
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Copy);
+#endif
 
 		newTask->metadata->dep_list = (kmp_depend_info*) malloc(sizeof(kmp_depend_info) * ndeps);
 		for (kmp_uint32 i=0; i<ndeps; i++) {
@@ -284,15 +292,23 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 
 		newTask->metadata->ndeps = ndeps;
 
+#ifdef __VTPROF
 		__itt_task_end(__itt_mtsp_domain);
+#endif
 	}
 
 
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Add);
+#endif
 	submissionQueue.enq(newTask);
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 void __mtsp_RuntimeWorkSteal() {
@@ -301,11 +317,15 @@ void __mtsp_RuntimeWorkSteal() {
 	// Counter for the total cycles spent per task
 	unsigned long long start=0, end=0;
 
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
+#endif
 
 	while (RunQueue.cur_load() > RunQueue.cont_load()) {
 		if (RunQueue.try_deq(&taskToExecute)) {
+#ifdef __VTPROF
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+#endif
 
 			start = beg_read_mtsp();
 
@@ -314,20 +334,28 @@ void __mtsp_RuntimeWorkSteal() {
 
 			end = end_read_mtsp();
 
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 
 			taskToExecute->metadata->taskSize = (end - start);
 
 			tasksExecutedByRT++;
 
 			// Inform that this task has finished execution
+#ifdef __VTPROF
 			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
+#endif
 			RetirementQueue.enq(taskToExecute);
+#ifdef __VTPROF
 			__itt_task_end(__itt_mtsp_domain);
+#endif
 		}
 	}
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 
@@ -335,7 +363,9 @@ void saveCoalesce() {
 	// Counter for the total cycles spent per task
 	unsigned long long start=0, end=0;
 
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Coalescing);
+#endif
 
 	start = beg_read_mtsp();
 
@@ -396,7 +426,9 @@ void saveCoalesce() {
 
 	addToTaskGraph( coalescedTask );
 
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 }
 
 double howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
@@ -475,7 +507,9 @@ inline void increaseCoalesce(kmp_task* task) {
 
 void* __mtsp_RuntimeThreadCode(void* params) {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//
+#ifdef __VTPROF
 	__itt_thread_set_name("MTSPRuntime");
+#endif
 
 	stick_this_thread_to_core("RuntimeThread", __MTSP_RUNTIME_THREAD_CORE__);
 	kmp_task* task = nullptr;
@@ -486,11 +520,15 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	restartCoalesce();
 	kmp_uint64 prevRoutine = 0;
 
+#ifdef __VTPROF
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Main_Loop);
+#endif
 	while (true) {
 		// -------------------------------------------------------------------------------
 		// Check if the execution of a task has been completed
+#ifdef __VTPROF
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Del);
+#endif
 		if (RetirementQueue.try_deq(&task)) {
 			if (task->metadata->coalesceSize > 0) {
 				for (int idx=0; idx<task->metadata->coalesceSize; idx++) {
@@ -506,12 +544,16 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 			removeFromTaskGraph(task);
 
 		}
+#ifdef __VTPROF
 		__itt_task_end(__itt_mtsp_domain);
+#endif
 
 
 		// -------------------------------------------------------------------------------
 		// Check if there is any request for new thread creation
+#ifdef __VTPROF
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Add);
+#endif
 		if (freeSlots[0] > 0 && submissionQueue.try_deq(&task)) {
 			// Obtain an ID for the new task
 			task->metadata->taskgraph_slot_id = freeSlots[ freeSlots[0] ];
@@ -564,14 +606,18 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 			restartCoalesce();
 		}
 
+#ifdef __VTPROF
 		__itt_task_end(__itt_mtsp_domain);
+#endif
 
 
 
 
 		// -------------------------------------------------------------------------------
 		// Execute other "infrequent" bookkeeping tasks
+#ifdef __VTPROF
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Oth);
+#endif
 		iterations++;
 		if ((iterations & BatchSize) == 0) {
 			submissionQueue.fsh();
@@ -587,9 +633,13 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 			}
 #endif
 		}
+#ifdef __VTPROF
 		__itt_task_end(__itt_mtsp_domain);
+#endif
 	}
+#ifdef __VTPROF
 	__itt_task_end(__itt_mtsp_domain);
+#endif
 
 	return 0;
 }

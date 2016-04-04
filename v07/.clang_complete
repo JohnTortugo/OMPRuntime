@@ -1,10 +1,10 @@
 -std=c++11
+-include ./scheduler.cpp
+-include ./dep_tracker.cpp
 -include ./mtsp.cpp
 -include ./task_graph.cpp
 -include ./fe_interface.cpp
--include ./dep_tracker.cpp
--include ./scheduler.cpp
 -g3
 -std=c++11
 -fpic
--I/opt/intel/vtune_amplifier_xe_2015.3.0.403110/target/linux64/include/
+-I
