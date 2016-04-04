@@ -21,7 +21,7 @@
 
 kmp_uint64 tasksExecutedByCT = 0;
 kmp_uint64 metadataRequestsNotServiced = 0;
-volatile kmp_uint64 tasksExecutedByRT = 0;
+kmp_uint64 tasksAdded = 0;
 
 SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
 
@@ -137,12 +137,23 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 #ifdef SUBQUEUE_PATTERN
 	static std::map<kmp_uint64, kmp_uint64> taskTypes;
 	static kmp_uint64 counter=0; 
+
+	// This holds the task function address
+	// Mon Apr  4 12:55:03 BRT 2016
 	kmp_uint64 addr = (kmp_uint64) new_task->routine;
 
 	if (taskTypes.find(addr) == taskTypes.end())
 		taskTypes[addr] = taskTypes.size();
 
 	printf("%llu %u\n", counter++, taskTypes[addr]);
+#endif
+	
+#ifdef __TRACE
+	printf("task_%lu\n", tasksAdded++);
+	printf("%lu\n", new_task->routine);
+	for (int i = 0; i < ndeps; i++)
+		printf("%lu\n", (unsigned long) dep_list[i].base_addr);
+	__mtsp_addNewTask(new_task, ndeps, dep_list);
 #endif
 
 	// Ask to add this task to the task graph

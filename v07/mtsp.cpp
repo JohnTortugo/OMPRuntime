@@ -26,6 +26,7 @@ pthread_t 						__mtsp_RuntimeThread;
 bool 				volatile 	__mtsp_Single 		= false;
 
 kmp_uint32 						__mtsp_globalTaskCounter = 0;
+kmp_uint64 volatile tasksExecutedByRT = 0;
 
 
 /// Initialization of locks
@@ -454,9 +455,9 @@ double howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
 		double l = (sti - m*co) / (m*ro);
 
 		if (l < 0.4) {
-//			#ifdef DEBUG_COAL_MODE
+			#ifdef DEBUG_COAL_MODE
 				printf("[Coalesce] Impossible to amortize. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
-//			#endif
+			#endif
 			__coalImpossible++;
 			return 100;	// I am trying to not decrease parallelism here
 		}
