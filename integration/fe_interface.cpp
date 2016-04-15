@@ -124,6 +124,7 @@ void __mtsp_bridge_init() {
 void __mtsp_enqueue_into_submission_queue(unsigned long long packet) {
 	while(!tga_subq_can_enq());
 
+	printf("[mtsp] Packet going to the Submission Queue: %llx\n", packet);
 	tga_subq_enq(packet);
 
 	/*
@@ -221,7 +222,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	for (kmp_int32 i=0; i<ndeps; i++) {
 		unsigned char mode = deps[i].flags.in | (deps[i].flags.out << 1);
 
-		create_packet(subq_packet.payload, HWS_DEP_PACKET, mode, (i == (ndeps-1)), deps[i].base_addr);
+	create_packet(subq_packet.payload, HWS_DEP_PACKET, mode, (i == (ndeps-1)), deps[i].base_addr);
 
 #ifdef LINEAR_DEBUG
 	printf("[mtsp_bridge:]\tSending dependence descriptor #%d to the submission queue.\n", number_of_dependence_descriptors_sent++);
