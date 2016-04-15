@@ -30,13 +30,20 @@ typedef enum { KERNEL_DISPATCH = 1, AGENT_DISPATCH = 2, DATA_MODE = 0 } HSA_QFea
 #define set_WDPtr(var, val)       	(((var) & 0x0003FFFFFFFFFFFF))
 
 
-#define create_packet(var, type, mode, last, addr)		( (var) = 0);									\
-														( (var) |= ((unsigned long long) type << 62));	\
-														( (var) |= ((unsigned long long) mode << 52));	\
-														( (var) |= ((unsigned long long) last << 51));	\
-														( (var) |= ((unsigned long long) addr))
+#define create_task_packet(var, prior, last, addr)						( (var) = 0);					\
+												( (var) |= ((unsigned long long) 1     << 62));	\
+												( (var) |= ((unsigned long long) 0     << 54));	\
+												( (var) |= ((unsigned long long) prior << 52));	\
+												( (var) |= ((unsigned long long) last  << 50));	\
+												( (var) |= ((unsigned long long) addr))
 
 
+#define create_dep_packet(var, mode, last, addr)						( (var) = 0);					\
+												( (var) |= ((unsigned long long) 2     << 62));	\
+												( (var) |= ((unsigned long long) 0     << 54));	\
+												( (var) |= ((unsigned long long) mode  << 52));	\
+												( (var) |= ((unsigned long long) last  << 50));	\
+												( (var) |= ((unsigned long long) addr))
 
 
 
