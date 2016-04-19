@@ -20,6 +20,9 @@ endif
 mtsp: $(OBJS)
 	$(CC) $(OBJS) $(INCLUDES) -shared -L./ -ltioga -o $(LIB_NAME)
 
+static: $(OBJS)
+	ar rcs libmtsp.a $(OBJS) tioglib.o queue_test.o
+
 clean:
 	rm -rf $(OBJS) $(LIB_NAME)
 	

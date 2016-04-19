@@ -188,6 +188,38 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 }
 
 
+static uint64_t encode_task(uint8_t prior, uint8_t ndeps, uint64_t WDPtr)
+{
+	uint64_t t_pkg = 0;
+
+	t_pkg |= ((uint64_t) 1 << 62);				//Package Type identifying bits
+	t_pkg |= ((uint64_t) 0 << 54);				//ASID
+	t_pkg |= ((uint64_t) prior << 52);				//QOS
+	t_pkg |= ((uint64_t) (ndeps == 0) << 50);
+	t_pkg |= ((uint64_t) WDPtr);			//WorkDescriptor
+
+	return t_pkg;
+}
+
+
+static uint64_t encode_dep(uint8_t mode, bool last, uint64_t varptr)
+{
+	uint64_t d_pkg = 0;
+
+	printf("d_pkg 1:%llx\n", d_pkg);
+	d_pkg |= ((uint64_t) 2 << 62);				//Package Type identifying bits
+	printf("d_pkg 2:%llx\n", d_pkg);
+	d_pkg |= ((uint64_t) 0 << 54);				//ASID
+	printf("d_pkg 3:%llx\n", d_pkg);
+	d_pkg |= ((uint64_t) mode << 52);			//QOS
+	printf("d_pkg 4:%llx\n", d_pkg);
+	d_pkg |= ((uint64_t) (last ? 1 : 0) << 50);
+	printf("d_pkg 5:%llx\n", d_pkg);
+	d_pkg |= ((uint64_t) varptr & 0x3ffffffffffff);			//dependence address
+	printf("d_pkg 6:%llx\n", d_pkg);
+
+	return d_pkg;
+}
 
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* deps, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
@@ -202,7 +234,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	tasks[new_task->part_id] = new_task;
 
 	/// Send the packet with the task descriptor
-	create_packet(subq_packet.payload, HWS_TASK_PACKET, HWS_QOS, (ndeps == 0), new_task->part_id);
+	create_task_packet(subq_packet.payload, 0, (ndeps == 0), new_task->routine);
 #ifdef LINEAR_DEBUG
 	printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue.\n", number_of_task_descriptors_sent++);
 #endif
@@ -222,15 +254,18 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	for (kmp_int32 i=0; i<ndeps; i++) {
 		unsigned char mode = deps[i].flags.in | (deps[i].flags.out << 1);
 
-	create_packet(subq_packet.payload, HWS_DEP_PACKET, mode, (i == (ndeps-1)), deps[i].base_addr);
+		printf("Original payload:\t%llx\n", subq_packet.payload);
+		printf("Mode:\t\t%llx\n", mode);
+		printf("Last:\t\t%llx\n", (i == (ndeps-1)));
+		printf("Address:\t%llx\n", deps[i].base_addr);
+		subq_packet.payload = encode_dep(mode, (i == (ndeps-1)), deps[i].base_addr);
+		//create_dep_packet(subq_packet.payload, mode, (i == (ndeps-1)), deps[i].base_addr);
 
 #ifdef LINEAR_DEBUG
-	printf("[mtsp_bridge:]\tSending dependence descriptor #%d to the submission queue.\n", number_of_dependence_descriptors_sent++);
+		printf("[mtsp_bridge:]\tSending dependence descriptor #%d to the submission queue.\n", number_of_dependence_descriptors_sent++);
 #endif
 #ifdef PRINT_PACKETS
-	//printf("[mtsp_bridge:]\tSending dependence descriptor #%d to the submission queue:", number_of_dependence_descriptors_sent++);
-	print_num_in_chars(subq_packet.payload);
-	//printf("\n");
+		print_num_in_chars(subq_packet.payload);
 #endif
 
 		__mtsp_enqueue_into_submission_queue(subq_packet.payload);
