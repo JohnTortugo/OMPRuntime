@@ -124,7 +124,6 @@ void __mtsp_bridge_init() {
 void __mtsp_enqueue_into_submission_queue(unsigned long long packet) {
 	while(!tga_subq_can_enq());
 
-	printf("[mtsp] Packet going to the Submission Queue: %llx\n", packet);
 	tga_subq_enq(packet);
 
 	/*
@@ -206,17 +205,11 @@ static uint64_t encode_dep(uint8_t mode, bool last, uint64_t varptr)
 {
 	uint64_t d_pkg = 0;
 
-	printf("d_pkg 1:%llx\n", d_pkg);
 	d_pkg |= ((uint64_t) 2 << 62);				//Package Type identifying bits
-	printf("d_pkg 2:%llx\n", d_pkg);
 	d_pkg |= ((uint64_t) 0 << 54);				//ASID
-	printf("d_pkg 3:%llx\n", d_pkg);
 	d_pkg |= ((uint64_t) mode << 52);			//QOS
-	printf("d_pkg 4:%llx\n", d_pkg);
 	d_pkg |= ((uint64_t) (last ? 1 : 0) << 50);
-	printf("d_pkg 5:%llx\n", d_pkg);
 	d_pkg |= ((uint64_t) varptr & 0x3ffffffffffff);			//dependence address
-	printf("d_pkg 6:%llx\n", d_pkg);
 
 	return d_pkg;
 }
@@ -254,10 +247,6 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	for (kmp_int32 i=0; i<ndeps; i++) {
 		unsigned char mode = deps[i].flags.in | (deps[i].flags.out << 1);
 
-		printf("Original payload:\t%llx\n", subq_packet.payload);
-		printf("Mode:\t\t%llx\n", mode);
-		printf("Last:\t\t%llx\n", (i == (ndeps-1)));
-		printf("Address:\t%llx\n", deps[i].base_addr);
 		subq_packet.payload = encode_dep(mode, (i == (ndeps-1)), deps[i].base_addr);
 		//create_dep_packet(subq_packet.payload, mode, (i == (ndeps-1)), deps[i].base_addr);
 
