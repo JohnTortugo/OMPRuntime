@@ -114,9 +114,9 @@ void __mtsp_bridge_init() {
 
 
 
+	*/
 	/// Create worker threads
 	__mtsp_initScheduler();
-	*/
 }
 
 

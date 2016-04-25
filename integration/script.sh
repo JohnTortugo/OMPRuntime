@@ -24,3 +24,5 @@ cd $RNT_PATH
 make ARCH=$ARCH
 
 cp $LIB_PATH/queue_test.cpp $RNT_PATH
+cp $LIB_PATH/queue_test.h $RNT_PATH
+cp $LIB_PATH/../iotypes.h $RNT_PATH

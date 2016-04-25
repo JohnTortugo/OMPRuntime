@@ -24,6 +24,7 @@ bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload)
 {
 	/// By default, this function tries to dequeue packets
 	/// from the first run queue.
+
 	if (tga_runq_can_deq(0))
 	{
 			*payload = tga_runq_raw_deq(0);
@@ -92,11 +93,12 @@ void* workerThreadCode(void* params) {
 	while (true) {
 		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
 			taskSlot 	  = packet & 0x3FFFFFFFFFFFF;
-			taskToExecute = tasks[taskSlot];
+		
+			//taskToExecute = tasks[taskSlot];
 
 			/// Start execution of the task
 			if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03x which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
-			(*(taskToExecute->routine))(0, taskToExecute);
+			//(*(taskToExecute->routine))(0, taskToExecute);
 
 			tasksExecuted++;
 
