@@ -101,7 +101,7 @@ void* workerThreadCode(void* params) {
 			if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03x which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
 			printf("[mtsp]: Pointer to the kmp_task structure holding the function to be run: %p\n", taskToExecute);
 			printf("[mtsp]: Pointer of the encapsulated function to be run: %p\n", taskToExecute->routine);
-			//(*(taskToExecute->routine))(0, taskToExecute);
+			(*(taskToExecute->routine))(0, taskToExecute);
 
 			tasksExecuted++;
 
