@@ -94,7 +94,8 @@ void* workerThreadCode(void* params) {
 		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
 			taskSlot 	  = packet & 0x3FFFFFFFFFFFF;
 		
-			//taskToExecute = tasks[taskSlot];
+			printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
+			taskToExecute = tasks[taskSlot];
 
 			/// Start execution of the task
 			if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03x which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
