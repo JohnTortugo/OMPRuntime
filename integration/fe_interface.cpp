@@ -229,7 +229,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	tasks[new_task->part_id] = new_task;
 
 	/// Send the packet with the task descriptor
-	create_task_packet(subq_packet.payload, 0, (ndeps == 0), new_task->routine);
+	create_task_packet(subq_packet.payload, 0, (ndeps == 0), new_task->part_id);
 #ifdef LINEAR_DEBUG
 	printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue.\n", number_of_task_descriptors_sent++);
 #endif
