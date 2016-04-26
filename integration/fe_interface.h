@@ -8,9 +8,9 @@
 #include <pthread.h>
 
 /// Tells the maximum number of (!!)Bytes(!!) in the submission, run and retirement queue
-#define MAX_TASKS						   				128
+#define MAX_TASKS					512
 #define SUBMISSION_QUEUE_SIZE			 	(MAX_TASKS * 8)
-#define RUN_QUEUE_SIZE						(MAX_TASKS * 8)
+#define RUN_QUEUE_SIZE					(MAX_TASKS * 8)
 #define RETIREMENT_QUEUE_SIZE				(MAX_TASKS * 8)
 #define PRINT_PACKETS
 
@@ -26,7 +26,7 @@ extern struct QDescriptor* __mtsp_RetirementQueueDesc;
 
 
 extern kmp_task* volatile tasks[MAX_TASKS];
-extern SPSCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
+extern SPSCQueue<kmp_uint16, MAX_TASKS, 4> freeSlots;
 
 
 
