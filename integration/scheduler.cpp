@@ -92,7 +92,7 @@ void* workerThreadCode(void* params) {
 
 	while (true) {
 		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
-			taskSlot 	  = packet & 0x3FFFFFFFFFFFF;
+			taskSlot 	  = packet & 0x1FF;
 		
 			printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
 			taskToExecute = tasks[taskSlot];
