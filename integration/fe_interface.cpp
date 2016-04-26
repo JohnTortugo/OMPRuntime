@@ -19,7 +19,7 @@ struct QDescriptor* __mtsp_RunQueueDesc = nullptr;
 struct QDescriptor* __mtsp_RetirementQueueDesc = nullptr;
 
 kmp_task* volatile tasks[MAX_TASKS];
-SPSCQueue<kmp_uint16, MAX_TASKS, 4> freeSlots;
+SPSCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
 
 
 void __mtsp_bridge_init() {
