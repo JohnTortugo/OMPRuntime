@@ -7,3 +7,4 @@
 -g3
 -std=c++11
 -fpic
+-D__TRACE
