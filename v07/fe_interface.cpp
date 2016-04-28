@@ -149,10 +149,19 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 #endif
 	
 #ifdef __TRACE
-	printf("task_%lu\n", tasksAdded++);
-	printf("%lu\n", new_task->routine);
+	static FILE * fp;
+	static bool first = true;
+
+	if (first)
+	{
+		first = false;
+		fp = fopen("task_dump.txt", "w");
+	}
+
+	//fprintf(fp, "task_%lu\n", tasksAdded++);
+	fprintf(fp, "%lu\n", new_task->routine);
 	for (int i = 0; i < ndeps; i++)
-		printf("%lu\n", (unsigned long) dep_list[i].base_addr);
+		fprintf(fp, "%lu\n", (unsigned long) dep_list[i].base_addr);
 #endif
 
 	// Ask to add this task to the task graph
