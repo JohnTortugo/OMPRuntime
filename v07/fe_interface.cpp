@@ -153,7 +153,6 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	printf("%lu\n", new_task->routine);
 	for (int i = 0; i < ndeps; i++)
 		printf("%lu\n", (unsigned long) dep_list[i].base_addr);
-	__mtsp_addNewTask(new_task, ndeps, dep_list);
 #endif
 
 	// Ask to add this task to the task graph
