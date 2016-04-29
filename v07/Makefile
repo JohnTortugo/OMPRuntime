@@ -14,6 +14,8 @@ SERRORS		= #-Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-funct
 CFLAGS		= -g3 -std=c++11 -fpic $(SERRORS)
 OPT_LVL		= 
 
+mtsp-trace: CFLAGS += -D__TRACE
+
 mtsp: $(OBJS) CLANG_COMPLETE
 	g++ $(CFLAGS) $(OBJS) $(ITT_LIB) -shared -ldl -o $(LIB_NAME)
 
@@ -33,7 +35,7 @@ rebuild-run:
 	@make mtsp
 	
 %.o: %.cpp
-	g++ -c $(CFLAGS) $(OPT_LVL) -D__TRACE $< -o $@
+	g++ -c $(CFLAGS) $(OPT_LVL) $< -o $@
 
 
 ###############################################################################

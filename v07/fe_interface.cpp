@@ -18,6 +18,7 @@
 #include "task_graph.h"
 #include "scheduler.h"
 #include "fe_interface.h"
+#include "hws.h"
 
 kmp_uint64 tasksExecutedByCT = 0;
 kmp_uint64 metadataRequestsNotServiced = 0;
@@ -149,11 +150,25 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 #endif
 	
 #ifdef __TRACE
-	printf("task_%lu\n", tasksAdded++);
-	printf("%lu\n", new_task->routine);
-	for (int i = 0; i < ndeps; i++)
-		printf("%lu\n", (unsigned long) dep_list[i].base_addr);
-	__mtsp_addNewTask(new_task, ndeps, dep_list);
+	static FILE * fp;
+	static bool first = true;
+	unsigned long long packet;
+
+	if (first)
+	{
+		first = false;
+		fp = fopen("task_dump.txt", "w");
+	}
+
+	create_task_packet(packet, 0, (ndeps == 0), new_task->routine);
+	fprintf(fp, "%llx\n", packet);
+
+	for (kmp_int32 i=0; i<ndeps; i++) {
+		unsigned char mode = dep_list[i].flags.in | (dep_list[i].flags.out << 1);
+
+		create_dep_packet(packet, mode, (i == (ndeps-1)), dep_list[i].base_addr);
+		fprintf(fp, "%llx\n", packet);
+	}
 #endif
 
 	// Ask to add this task to the task graph
