@@ -224,8 +224,8 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	new_task->part_id = freeSlots.deq();
 
 	/// Store the pointer to the task metadata
-	printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
-	printf("[mtsp:kmp_omp_task_with_deps]: Index of tasks where that pointer was stored: %d\n", new_task->part_id);
+	//printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
+	//printf("[mtsp:kmp_omp_task_with_deps]: Index of tasks where that pointer was stored: %d\n", new_task->part_id);
 	tasks[new_task->part_id] = new_task;
 
 	/// Send the packet with the task descriptor
