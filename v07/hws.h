@@ -35,7 +35,7 @@ typedef enum { KERNEL_DISPATCH = 1, AGENT_DISPATCH = 2, DATA_MODE = 0 } HSA_QFea
 												( (var) |= ((unsigned long long) 0     << 54));	\
 												( (var) |= ((unsigned long long) prior << 52));	\
 												( (var) |= ((unsigned long long) last  << 50));	\
-												( (var) |= ((unsigned long long) addr))
+												( (var) |= ((unsigned long long) addr  && 0x3FFFFFFFFFFFF))
 
 
 #define create_dep_packet(var, mode, last, addr)						( (var) = 0);					\
@@ -43,7 +43,7 @@ typedef enum { KERNEL_DISPATCH = 1, AGENT_DISPATCH = 2, DATA_MODE = 0 } HSA_QFea
 												( (var) |= ((unsigned long long) 0     << 54));	\
 												( (var) |= ((unsigned long long) mode  << 52));	\
 												( (var) |= ((unsigned long long) last  << 50));	\
-												( (var) |= ((unsigned long long) addr))
+												( (var) |= ((unsigned long long) addr  && 0x3FFFFFFFFFFFF))
 
 
 
