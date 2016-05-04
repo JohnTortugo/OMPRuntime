@@ -3,7 +3,7 @@ OBJS		= $(SOURCES:.cpp=.o)
 LIB_NAME	= mtsp_bridge.so
 
 SERRORS		= -Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value
-CFLAGS		= -g -std=c++11 -Wall -Werror -fpic $(SERRORS)
+CFLAGS		= -g -std=gnu++11 -Wall -Werror -fpic $(SERRORS)
 INCLUDES	= -I"../../tga_driver/library"
 OPT_LVL		= -O3
 

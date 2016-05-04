@@ -1,5 +1,7 @@
 #!/bin/bash
 
+(rm queue_test.* || true) 2> /dev/null
+
 if [ -z $ARCH ]
 then
 	ARCH=arm
