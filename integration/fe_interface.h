@@ -12,7 +12,7 @@
 #define SUBMISSION_QUEUE_SIZE			 	(MAX_TASKS * 8)
 #define RUN_QUEUE_SIZE					(MAX_TASKS * 8)
 #define RETIREMENT_QUEUE_SIZE				(MAX_TASKS * 8)
-#define PRINT_PACKETS
+//#define PRINT_PACKETS
 
 
 
