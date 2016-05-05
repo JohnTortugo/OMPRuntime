@@ -4,8 +4,6 @@
 	#include "kmp.h"
 	#include <pthread.h>
 
-	extern SimpleQueue<unsigned long long, RUN_QUEUE_SIZE> RunQueue;
-
 	/// The bool var is used to set a flag indicating that worker threads must "barrier" synchronize
 	/// The counter is used to count how many threads have already reached to the barrier
 	extern kmp_uint32	volatile	__mtsp_threadWaitCounter;
@@ -20,8 +18,6 @@
 
 	/// Pointer to the list of worker pthreads
 	extern pthread_t* 	volatile	workerThreads;
-
-	extern pthread_t*   volatile 	copyQueuesThread;
 
 	/// Pointer to the list of worker threads IDs (may not start at 0)
 	extern kmp_uint32* 	volatile	workerThreadsIds;

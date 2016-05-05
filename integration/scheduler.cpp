@@ -5,11 +5,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-pthread_t*      volatile copyQueuesThread			= nullptr;
 pthread_t* 		volatile workerThreads 				= nullptr;
 kmp_uint32* 	volatile workerThreadsIds			= nullptr;
-
-SimpleQueue<unsigned long long, RUN_QUEUE_SIZE> RunQueue;
 
 kmp_uint32		volatile __mtsp_threadWaitCounter	= 0;
 kmp_int32		volatile __mtsp_inFlightTasks		= 0;
@@ -21,24 +18,6 @@ kmp_uint32		volatile __mtsp_numWorkerThreads	= 0;
 bool 			volatile __run_queue_lock			= UNLOCKED;
 bool 			volatile __ret_queue_lock			= UNLOCKED;
 
-
-bool __mtsp_dequeue_from_tioga_run_queue(unsigned long long int* payload) {
-	/// By default, this function tries to dequeue packets
-	/// from the first run queue.
-
-	if (tga_runq_can_deq(0)) {
-		*payload = tga_runq_raw_deq(0);
-
-		return true;
-	}
-	else
-		return false;
-}
-
-
-void __mtsp_enqueue_into_software_run_queue(unsigned long long int payload) {
-	RunQueue.enq(payload);
-}
 
 
 bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload)
@@ -112,9 +91,7 @@ void* workerThreadCode(void* params) {
 	kmp_uint16 myId 		= *tasksIdent;
 
 	while (true) {
-		//if ( __mtsp_dequeue_from_software_run_queue(&packet) ) {
-		if (RunQueue.try_deq(&packet)) {
-
+		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
 			taskSlot 	  = packet & 0x1FF;
 		
 			printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
@@ -156,21 +133,6 @@ void* workerThreadCode(void* params) {
 	return nullptr;
 }
 
-
-void* __mtsp_queueCopyThread(void* params) {
-	unsigned long long int packet = 0;
-
-	while (true) {
-		// If were able to dequeue from Tioga RunQueue add the item to
-		// the software RunQueue
-		if ( __mtsp_dequeue_from_tioga_run_queue(&packet) ) {
-			__mtsp_enqueue_into_software_run_queue(packet);
-		}
-	}
-
-	return nullptr;
-}
-
 void __mtsp_initScheduler() {
 	__mtsp_numWorkerThreads = sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -187,9 +149,6 @@ void __mtsp_initScheduler() {
 	workerThreads 			= (pthread_t  *) malloc(sizeof(pthread_t)   * __mtsp_numWorkerThreads);
 	workerThreadsIds 		= (kmp_uint32 *) malloc(sizeof(kmp_uint32)  * __mtsp_numWorkerThreads);
 
-	// Create the thread that copy to/from tioga queues to software queues
-	pthread_create(copyQueuesThread, NULL, __mtsp_queueCopyThread, nullptr);
-
 	/// create the requested number of worker threads
 	for (unsigned int i=0; i<__mtsp_numWorkerThreads; i++) {
 		/// What is the ID/Core of the worker thread
@@ -199,6 +158,3 @@ void __mtsp_initScheduler() {
 		pthread_create(&workerThreads[i], NULL, workerThreadCode, (void*)&workerThreadsIds[i]);
 	}
 }
-
-
-
