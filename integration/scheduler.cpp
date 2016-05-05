@@ -41,7 +41,7 @@ bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload)
 
 			*payload = pos->payload;
 
-			if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP - RUNQ] Packet with payload [%llx] coming from index %02ld of runq, address %p\n" ANSI_COLOR_RESET, *payload, __mtsp_RunQueueDesc->QHead, pos);
+			if (DEBUG_MODE)//printf(ANSI_COLOR_RED "[MTSP - RUNQ] Packet with payload [%llx] coming from index %02ld of runq, address %p\n" ANSI_COLOR_RESET, *payload, __mtsp_RunQueueDesc->QHead, pos);
 
 			__mtsp_RunQueueDesc->QHead = (__mtsp_RunQueueDesc->QHead + sizeof(struct SQPacket)) % __mtsp_RunQueueDesc->QSize;
 
@@ -70,7 +70,7 @@ void __mtsp_enqueue_into_retirement_queue(unsigned long long int taskSlot) {
 	struct SQPacket* pos = (struct SQPacket*) (__mtsp_RetirementQueueDesc->base_address + __mtsp_RetirementQueueDesc->QTail);
 	pos->payload 		 = taskSlot;
 
-	if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP - RETQ] Packet with payload [%llx] going to index %02ld of retq, address %p\n" ANSI_COLOR_RESET, taskSlot, __mtsp_RetirementQueueDesc->QTail, pos);
+	if (DEBUG_MODE)//printf(ANSI_COLOR_RED "[MTSP - RETQ] Packet with payload [%llx] going to index %02ld of retq, address %p\n" ANSI_COLOR_RESET, taskSlot, __mtsp_RetirementQueueDesc->QTail, pos);
 
 	__mtsp_RetirementQueueDesc->QTail = (__mtsp_RetirementQueueDesc->QTail + sizeof(struct SQPacket)) % __mtsp_RetirementQueueDesc->QSize;
 */
@@ -94,13 +94,13 @@ void* workerThreadCode(void* params) {
 		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
 			taskSlot 	  = packet & 0x1FF;
 		
-			printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
+		//printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
 			taskToExecute = tasks[taskSlot];
 
 			/// Start execution of the task
-			if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03x which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
-			printf("[mtsp]: Pointer to the kmp_task structure holding the function to be run: %p\n", taskToExecute);
-			printf("[mtsp]: Pointer of the encapsulated function to be run: %p\n", taskToExecute->routine);
+			if (DEBUG_MODE)//printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03x which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
+		//printf("[mtsp]: Pointer to the kmp_task structure holding the function to be run: %p\n", taskToExecute);
+		//printf("[mtsp]: Pointer of the encapsulated function to be run: %p\n", taskToExecute->routine);
 			(*(taskToExecute->routine))(0, taskToExecute);
 
 			tasksExecuted++;
@@ -121,7 +121,7 @@ void* workerThreadCode(void* params) {
 					/// wait until the barrier is released
 					while (__mtsp_threadWait);
 
-					if (DEBUG_MODE) printf("%llu tasks were executed by thread %d.\n", tasksExecuted, myId);
+					if (DEBUG_MODE)//printf("%llu tasks were executed by thread %d.\n", tasksExecuted, myId);
 
 					/// Says that the current thread have visualized the previous update to threadWait
 					ATOMIC_SUB(&__mtsp_threadWaitCounter, 1);
