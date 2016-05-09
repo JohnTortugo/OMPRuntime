@@ -224,8 +224,8 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	new_task->part_id = freeSlots.deq();
 
 	/// Store the pointer to the task metadata
-	printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
-	printf("[mtsp:kmp_omp_task_with_deps]: Index of tasks where that pointer was stored: %d\n", new_task->part_id);
+	//printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
+	//printf("[mtsp:kmp_omp_task_with_deps]: Index of tasks where that pointer was stored: %d\n", new_task->part_id);
 	tasks[new_task->part_id] = new_task;
 
 	/// Send the packet with the task descriptor
@@ -269,23 +269,50 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 
 kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
+	static bool barrier_wait = false;
+	static bool release_wait = false;
+
+	printf("[mtsp:__kmpc_omp_taskwait]: Entering.\n");
+
 	/// Reset the number of threads that have currently reached the barrier
 	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
+
+	assert(__mtsp_threadWaitCounter == 0);
 
 	/// Tell threads that they should synchronize at a barrier
 	ATOMIC_OR(&__mtsp_threadWait, 1);
 
+	assert(__mtsp_threadWait == 1);
+
 	/// Wait until all threads have reached the barrier
-	while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads);
+	while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads)
+	{
+		if (!barrier_wait)
+		{
+			printf("[mtsp:__kmpc_omp_taskwait]: Waiting for %d threads to reach the barrier.\n", __mtsp_numWorkerThreads);
+			barrier_wait = true;
+		}
+	}
+	barrier_wait = false;
 
 	/// OK. Now all threads have reached the barrier. We now free then to continue execution
 	ATOMIC_AND(&__mtsp_threadWait, 0);
 
+	assert(__mtsp_threadWait == 0);
+
+	printf("[mtsp:__kmpc_omp_taskwait]: Released threads for execution again.\n");
+
 	/// Before we continue we need to make sure that all threads have "seen" the previous
 	/// updated value of threadWait
-	while (__mtsp_threadWaitCounter != 0);
-
-	//hws_alive = false;
+	while (__mtsp_threadWaitCounter != 0)
+	{
+		if (!release_wait)
+		{
+			printf("[mtsp:__kmpc_omp_taskwait]: Waiting for %d threads to get notified about the release.\n", __mtsp_threadWaitCounter);
+			release_wait = true;
+		}
+	}
+	release_wait = false;
 
 	return 0;
 }

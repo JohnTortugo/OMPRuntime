@@ -6,6 +6,7 @@
 #include "ThreadedQueue.h"
 #include "utility.h"
 #include <pthread.h>
+#include <cassert>
 
 /// Tells the maximum number of (!!)Bytes(!!) in the submission, run and retirement queue
 #define MAX_TASKS					512
