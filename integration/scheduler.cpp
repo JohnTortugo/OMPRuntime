@@ -94,13 +94,13 @@ void* workerThreadCode(void* params) {
 		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
 			taskSlot 	  = packet & 0x1FF;
 		
-		//printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
+			//printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
 			taskToExecute = tasks[taskSlot];
 
 			/// Start execution of the task
-			if (DEBUG_MODE)printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03x which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
-		//printf("[mtsp]: Pointer to the kmp_task structure holding the function to be run: %p\n", taskToExecute);
-		//printf("[mtsp]: Pointer of the encapsulated function to be run: %p\n", taskToExecute->routine);
+			if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03x which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
+			//printf("[mtsp]: Pointer to the kmp_task structure holding the function to be run: %p\n", taskToExecute);
+			//printf("[mtsp]: Pointer of the encapsulated function to be run: %p\n", taskToExecute->routine);
 			(*(taskToExecute->routine))(0, taskToExecute);
 
 			tasksExecuted++;
