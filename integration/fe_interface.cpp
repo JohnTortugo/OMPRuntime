@@ -20,7 +20,7 @@ struct QDescriptor* __mtsp_RetirementQueueDesc = nullptr;
 
 kmp_task* volatile tasks[MAX_TASKS];
 SPSCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
-
+int mtsp_number_of_outstanding_task_descriptors = 0;
 
 void __mtsp_bridge_init() {
 
@@ -222,7 +222,8 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 	/// Obtain the id of the new task
 	new_task->part_id = freeSlots.deq();
-	printf("[mtsp:__kmpc_omp_task_with_deps]: Number of outstanding task descriptors: %d\n", MAX_TASKS - freeSlots.cur_load());
+	mtsp_number_of_outstanding_task_descriptors = MAX_TASKS - freeSlots.cur_load();
+	printf("[mtsp:__kmpc_omp_task_with_deps]: Number of outstanding task descriptors: %d\n", mtsp_number_of_outstanding_task_descriptors);
 
 	/// Store the pointer to the task metadata
 	//printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
