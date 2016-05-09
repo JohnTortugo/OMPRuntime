@@ -222,8 +222,8 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 	/// Obtain the id of the new task
 	new_task->part_id = freeSlots.deq();
-	mtsp_number_of_outstanding_task_descriptors = MAX_TASKS - freeSlots.cur_load();
-	printf("[mtsp:__kmpc_omp_task_with_deps]: Number of outstanding task descriptors: %d\n", mtsp_number_of_outstanding_task_descriptors);
+	//mtsp_number_of_outstanding_task_descriptors = MAX_TASKS - freeSlots.cur_load();
+	//printf("[mtsp:__kmpc_omp_task_with_deps]: Number of outstanding task descriptors: %d\n", mtsp_number_of_outstanding_task_descriptors);
 
 	/// Store the pointer to the task metadata
 	//printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
