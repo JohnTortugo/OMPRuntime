@@ -23,8 +23,8 @@
 ##cd $RNT_PATH
 ##make ARCH=$ARCH
 ##
-##cp $LIB_PATH/queue_test.cpp $RNT_PATH
-##cp $LIB_PATH/queue_test.h $RNT_PATH
+##cp $LIB_PATH/mem_interface.cpp $RNT_PATH
+##cp $LIB_PATH/mem_interface.h $RNT_PATH
 ##cp $LIB_PATH/../iotypes.h $RNT_PATH
 ./script.sh
 
@@ -32,9 +32,9 @@ if [ $NOT_UNICAMP ]
 then
 	tar c libtioga.so mtsp_bridge.so | ssh -p 6868 lucas.morais@cajarana.lsc.ic.unicamp.br -t "ssh linaro@10.68.30.43 'tar x -C Lukensville/aux_integration_test'"
 else
-	scp mtsp_bridge.so libtioga.so queue_test.cpp queue_test.h iotypes.h linaro@10.68.30.43:Lukensville/aux_integration_test
+	scp mtsp_bridge.so libtioga.so mem_interface.cpp mem_interface.h iotypes.h linaro@10.68.30.43:Lukensville/aux_integration_test
 fi
 
-rm queue_test.cpp
-rm queue_test.h
+rm mem_interface.cpp
+rm mem_interface.h
 rm iotypes.h

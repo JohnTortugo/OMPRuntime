@@ -10,8 +10,8 @@
 	//
 	//===----------------------------------------------------------------------===//
 
-	/// Activate (1) or deactivate (0) printf-based debugging
-	#define	DEBUG_MODE	0
+	/// Activate or deactivate printf-based debugging
+	//#define	DBG
 
 
 

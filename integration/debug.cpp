@@ -4,7 +4,7 @@
 #include "kmp.h"
 #include "debug.h"
 
-#ifdef DEBUG_MODE
+#ifdef DBG
 	void DEBUG_kmpc_fork_call(ident *loc, kmp_int32 argc) {
 		fprintf(stderr, "Fork-call {\n");
 		fprintf(stderr, "\tLoc: %s\n", loc->psource);

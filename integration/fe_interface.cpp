@@ -27,94 +27,12 @@ void __mtsp_bridge_init() {
 	//1a: This initializes the auxiliary TGA library
 	tga_init();	
 
-	/*
-	QDescriptor* QSBase = (struct QDescriptor*) malloc(3 * sizeof(QDescriptor));
-
-	__mtsp_SubmissionQueueDesc 	= &QSBase[0];
-	__mtsp_SubmissionQueueDesc->QT = SINGLE;
-	__mtsp_SubmissionQueueDesc->QF = AGENT_DISPATCH;
-	__mtsp_SubmissionQueueDesc->base_address = (long long int) malloc(SUBMISSION_QUEUE_SIZE);
-	__mtsp_SubmissionQueueDesc->QSize = SUBMISSION_QUEUE_SIZE;
-	__mtsp_SubmissionQueueDesc->reserved = 0;
-	__mtsp_SubmissionQueueDesc->QId = 0;
-	__mtsp_SubmissionQueueDesc->QHead = 0;
-	__mtsp_SubmissionQueueDesc->QTail = 0;
-
-
-
-	__mtsp_RunQueueDesc = &QSBase[1];
-	__mtsp_RunQueueDesc->QT = SINGLE;
-	__mtsp_RunQueueDesc->QF = AGENT_DISPATCH;
-	__mtsp_RunQueueDesc->base_address = (long long int) malloc(RUN_QUEUE_SIZE);
-	__mtsp_RunQueueDesc->QSize = RUN_QUEUE_SIZE;
-	__mtsp_RunQueueDesc->reserved = 0;
-	__mtsp_RunQueueDesc->QId = 0;
-	__mtsp_RunQueueDesc->QHead = 0;
-	__mtsp_RunQueueDesc->QTail = 0;
-
-
-	__mtsp_RetirementQueueDesc 	= &QSBase[2];
-	__mtsp_RetirementQueueDesc->QT = SINGLE;
-	__mtsp_RetirementQueueDesc->QF = AGENT_DISPATCH;
-	__mtsp_RetirementQueueDesc->base_address = (long long int) malloc(RUN_QUEUE_SIZE);
-	__mtsp_RetirementQueueDesc->QSize = RUN_QUEUE_SIZE;
-	__mtsp_RetirementQueueDesc->reserved = 0;
-	__mtsp_RetirementQueueDesc->QId = 0;
-	__mtsp_RetirementQueueDesc->QHead = 0;
-	__mtsp_RetirementQueueDesc->QTail = 0;
-
-
-
-
-	printf("MTSP: -----------------------\n");
-	printf("QT = %d\n", __mtsp_SubmissionQueueDesc->QT);
-	printf("QF = %d\n", __mtsp_SubmissionQueueDesc->QF);
-	printf("BA = %p\n", (void *)__mtsp_SubmissionQueueDesc->base_address);
-	printf("QS = %d\n", __mtsp_SubmissionQueueDesc->QSize);
-	printf("RV = %d\n", __mtsp_SubmissionQueueDesc->reserved);
-	printf("QI = %ld\n", __mtsp_SubmissionQueueDesc->QId);
-	printf("QH = %ld\n", __mtsp_SubmissionQueueDesc->QHead);
-	printf("QT = %ld\n", __mtsp_SubmissionQueueDesc->QTail);
-
-	printf("MTSP: -----------------------\n");
-	printf("QT = %d\n", __mtsp_RunQueueDesc->QT);
-	printf("QF = %d\n", __mtsp_RunQueueDesc->QF);
-	printf("BA = %p\n", (void *)__mtsp_RunQueueDesc->base_address);
-	printf("QS = %d\n", __mtsp_RunQueueDesc->QSize);
-	printf("RV = %d\n", __mtsp_RunQueueDesc->reserved);
-	printf("QI = %ld\n", __mtsp_RunQueueDesc->QId);
-	printf("QH = %ld\n", __mtsp_RunQueueDesc->QHead);
-	printf("QT = %ld\n", __mtsp_RunQueueDesc->QTail);
-
-
-	printf("MTSP: -----------------------\n");
-	printf("QT = %d\n", __mtsp_RetirementQueueDesc->QT);
-	printf("QF = %d\n", __mtsp_RetirementQueueDesc->QF);
-	printf("BA = %p\n", (void *)__mtsp_RetirementQueueDesc->base_address);
-	printf("QS = %d\n", __mtsp_RetirementQueueDesc->QSize);
-	printf("RV = %d\n", __mtsp_RetirementQueueDesc->reserved);
-	printf("QI = %ld\n", __mtsp_RetirementQueueDesc->QId);
-	printf("QH = %ld\n", __mtsp_RetirementQueueDesc->QHead);
-	printf("QT = %ld\n", __mtsp_RetirementQueueDesc->QTail);
-
-	*/
-
 	/// Initialize structures to store task metadata
 	for (int i=0; i<MAX_TASKS; i++) {
 		tasks[i] = nullptr;
 		freeSlots.enq(i);
 	}
 
-	/*
-
-
-	/// Create the thread where the systemc (HWS) module will execute
-	pthread_create(&hwsThread, NULL, __hws_init, (void *)QSBase);
-
-
-
-
-	*/
 	/// Create worker threads
 	__mtsp_initScheduler();
 }
@@ -125,21 +43,7 @@ void __mtsp_enqueue_into_submission_queue(unsigned long long packet) {
 	while(!tga_subq_can_enq());
 
 	tga_subq_enq(packet);
-
-	/*
-	while (((__mtsp_SubmissionQueueDesc->QTail + (int)sizeof(struct SQPacket)) % __mtsp_SubmissionQueueDesc->QSize) == __mtsp_SubmissionQueueDesc->QHead);
-
-	struct SQPacket* pos = (struct SQPacket*) (__mtsp_SubmissionQueueDesc->base_address + __mtsp_SubmissionQueueDesc->QTail);
-	pos->payload 		 = packet;
-
-	if (DEBUG_MODE) printf(ANSI_COLOR_RED "[MTSP - SUBQ] Packet with payload [%llx] going to index %02ld of subq, address %p\n" ANSI_COLOR_RESET, packet, __mtsp_SubmissionQueueDesc->QTail, pos);
-
-	__mtsp_SubmissionQueueDesc->QTail = (__mtsp_SubmissionQueueDesc->QTail + sizeof(struct SQPacket)) % __mtsp_SubmissionQueueDesc->QSize;
-	*/
 }
-
-
-
 
 void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 	DEBUG_kmpc_fork_call(loc, argc);
@@ -166,7 +70,9 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 	/// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
     (microtask)(&tid, &tid, argvcp[0]);
 
-    //printf("Assuming the compiler or the programmer added a #pragma taskwait at the end of parallel for.\n");
+#ifdef DBG
+    printf("Assuming the compiler or the programmer added a #pragma taskwait at the end of parallel for.\n");
+#endif
     __kmpc_omp_taskwait(nullptr, 0);
 }
 
@@ -222,12 +128,17 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 	/// Obtain the id of the new task
 	new_task->part_id = freeSlots.deq();
-	//mtsp_number_of_outstanding_task_descriptors = MAX_TASKS - freeSlots.cur_load();
-	//printf("[mtsp:__kmpc_omp_task_with_deps]: Number of outstanding task descriptors: %d\n", mtsp_number_of_outstanding_task_descriptors);
+#ifdef DBG
+	mtsp_number_of_outstanding_task_descriptors = MAX_TASKS - freeSlots.cur_load();
+	printf("[mtsp:__kmpc_omp_task_with_deps]: Number of outstanding task descriptors: %d\n", mtsp_number_of_outstanding_task_descriptors);
+#endif
+
+#ifdef DBG
+	printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
+	printf("[mtsp:kmp_omp_task_with_deps]: Index of tasks where that pointer was stored: %d\n", new_task->part_id);
+#endif
 
 	/// Store the pointer to the task metadata
-	//printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
-	//printf("[mtsp:kmp_omp_task_with_deps]: Index of tasks where that pointer was stored: %d\n", new_task->part_id);
 	tasks[new_task->part_id] = new_task;
 
 	/// Send the packet with the task descriptor
@@ -236,9 +147,9 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue.\n", number_of_task_descriptors_sent++);
 #endif
 #ifdef PRINT_PACKETS
-	//printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue:", number_of_task_descriptors_sent++);
+	printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue:", number_of_task_descriptors_sent++);
 	print_num_in_chars(subq_packet.payload);
-	//printf("\n");
+	printf("\n");
 #endif
 	
 	__mtsp_enqueue_into_submission_queue(subq_packet.payload);
@@ -274,24 +185,28 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	static bool barrier_wait = false;
 	static bool release_wait = false;
 
-	printf("[mtsp:__kmpc_omp_taskwait]: Entering.\n");
-
 	/// Reset the number of threads that have currently reached the barrier
 	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
 
+#ifdef DBG
 	assert(__mtsp_threadWaitCounter == 0);
+#endif
 
 	/// Tell threads that they should synchronize at a barrier
 	ATOMIC_OR(&__mtsp_threadWait, 1);
 
+#ifdef DBG
 	assert(__mtsp_threadWait == 1);
+#endif
 
 	/// Wait until all threads have reached the barrier
 	while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads)
 	{
 		if (!barrier_wait)
 		{
+#ifdef DBG
 			printf("[mtsp:__kmpc_omp_taskwait]: Waiting for %d threads to reach the barrier.\n", __mtsp_numWorkerThreads);
+#endif
 			barrier_wait = true;
 		}
 	}
@@ -300,9 +215,13 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	/// OK. Now all threads have reached the barrier. We now free then to continue execution
 	ATOMIC_AND(&__mtsp_threadWait, 0);
 
+#ifdef DBG
 	assert(__mtsp_threadWait == 0);
+#endif
 
+#ifdef DBG
 	printf("[mtsp:__kmpc_omp_taskwait]: Released threads for execution again.\n");
+#endif
 
 	/// Before we continue we need to make sure that all threads have "seen" the previous
 	/// updated value of threadWait
@@ -310,7 +229,9 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	{
 		if (!release_wait)
 		{
+#ifdef DBG
 			printf("[mtsp:__kmpc_omp_taskwait]: Waiting for %d threads to get notified about the release.\n", __mtsp_threadWaitCounter);
+#endif
 			release_wait = true;
 		}
 	}
