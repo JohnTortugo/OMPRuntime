@@ -30,9 +30,9 @@
 
 if [ $NOT_UNICAMP ]
 then
-	tar c libtioga.so mtsp_bridge.so | ssh -p 6868 lucas.morais@cajarana.lsc.ic.unicamp.br -t "ssh linaro@10.68.30.43 'tar x -C Lukensville/aux_integration_test'"
+	tar c libtioga.so mtsp.so | ssh -p 6868 lucas.morais@cajarana.lsc.ic.unicamp.br -t "ssh linaro@10.68.30.43 'tar x -C Lukensville/aux_integration_test'"
 else
-	scp mtsp_bridge.so libtioga.so mem_interface.cpp mem_interface.h iotypes.h linaro@10.68.30.43:Lukensville/aux_integration_test
+	scp mtsp.so libtioga.so mem_interface.cpp mem_interface.h iotypes.h linaro@10.68.30.43:Lukensville/aux_integration_test
 fi
 
 rm mem_interface.cpp

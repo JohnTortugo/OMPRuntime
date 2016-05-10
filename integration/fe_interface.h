@@ -58,7 +58,7 @@ extern void place_doorbell();
  * Used to initialize the MTSP bridge. This allocate space for the submission,
  * run queues and retirement queues and sends their address to the HWS module.
  */
-void __mtsp_bridge_init();
+void __mtsp_init();
 
 
 

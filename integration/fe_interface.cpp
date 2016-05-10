@@ -22,7 +22,7 @@ kmp_task* volatile tasks[MAX_TASKS];
 SPSCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
 int mtsp_number_of_outstanding_task_descriptors = 0;
 
-void __mtsp_bridge_init() {
+void __mtsp_init() {
 
 	//1a: This initializes the auxiliary TGA library
 	tga_init();	
@@ -56,7 +56,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 
     if (__mtsp_initialized == false) {
     	__mtsp_initialized = true;
-    	__mtsp_bridge_init();
+    	__mtsp_init();
     }
 
     va_start(ap, microtask);
@@ -144,10 +144,10 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	/// Send the packet with the task descriptor
 	create_task_packet(subq_packet.payload, 0, (ndeps == 0), new_task->part_id);
 #ifdef LINEAR_DEBUG
-	printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue.\n", number_of_task_descriptors_sent++);
+	printf("[mtsp:]\tSending task descriptor #%d to the submission queue.\n", number_of_task_descriptors_sent++);
 #endif
 #ifdef PRINT_PACKETS
-	printf("[mtsp_bridge:]\tSending task descriptor #%d to the submission queue:", number_of_task_descriptors_sent++);
+	printf("[mtsp:]\tSending task descriptor #%d to the submission queue:", number_of_task_descriptors_sent++);
 	print_num_in_chars(subq_packet.payload);
 	printf("\n");
 #endif
@@ -166,7 +166,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 		//create_dep_packet(subq_packet.payload, mode, (i == (ndeps-1)), deps[i].base_addr);
 
 #ifdef LINEAR_DEBUG
-		printf("[mtsp_bridge:]\tSending dependence descriptor #%d to the submission queue.\n", number_of_dependence_descriptors_sent++);
+		printf("[mtsp:]\tSending dependence descriptor #%d to the submission queue.\n", number_of_dependence_descriptors_sent++);
 #endif
 #ifdef PRINT_PACKETS
 		print_num_in_chars(subq_packet.payload);

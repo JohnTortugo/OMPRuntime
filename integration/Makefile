@@ -1,6 +1,6 @@
 SOURCES		= $(shell find $(SOURCEDIR) -maxdepth 1 -name '*.cpp')
 OBJS		= $(SOURCES:.cpp=.o)
-LIB_NAME	= mtsp_bridge.so
+LIB_NAME	= mtsp.so
 
 SERRORS		= -Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value
 CFLAGS		= -g -std=gnu++11 -Wall -Werror -fpic $(SERRORS)
