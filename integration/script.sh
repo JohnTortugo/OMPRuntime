@@ -19,7 +19,7 @@ cd $RNT_PATH
 make clean 
 
 cd $LIB_PATH
-make shared ARCH=$ARCH
+make shared
 cp libtioga.so $RNT_PATH
 
 cd $RNT_PATH
