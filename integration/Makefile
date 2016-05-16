@@ -5,7 +5,7 @@ LIB_NAME	= mtsp.so
 SERRORS		= -Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value
 CFLAGS		= -g -std=gnu++11 -Wall -Werror -fpic $(SERRORS)
 INCLUDES	= -I"../../tga_driver/library"
-OPT_LVL		= -O3
+OPT_LVL		= -O0
 
 ifdef DBG
 	LINEAR_DEBUG = -DLINEAR_DEBUG
