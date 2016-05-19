@@ -55,43 +55,106 @@ public:
 	}
 
 	void enq(T elem) {
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		int afterNextWrite = nextWrite + 1;
-			afterNextWrite &= (QUEUE_SIZE - 1);
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
+		afterNextWrite &= (QUEUE_SIZE - 1);
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 
 		if (afterNextWrite == localRead) {
+			asm volatile("isb");
+			asm volatile("dmb");
+			asm volatile("dsb");
 			while (afterNextWrite == read) ;
+			asm volatile("isb");
+			asm volatile("dmb");
+			asm volatile("dsb");
 			localRead = read;
+			asm volatile("isb");
+			asm volatile("dmb");
+			asm volatile("dsb");
 		}
 
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		elems[nextWrite] = elem;
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 
 		nextWrite = afterNextWrite;
 
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		if ((nextWrite & (BATCH_SIZE-1)) == 0)
 			write = nextWrite;
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 	}
 
 	/// Returns true if we can enqueue at least one more item on the queue.
 	/// Actually it check to see if after the next enqueue the queue will be full.
 	/// It updates the "localRead" if that would be true.
 	bool can_enq() {
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		return ((nextWrite+1) != localRead || ((localRead = read) != (nextWrite + 1)));
 	}
 
 
 	T deq() {
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		if (nextRead == localWrite) {
+			asm volatile("isb");
+			asm volatile("dmb");
+			asm volatile("dsb");
 			while (nextRead == write) ;
+			asm volatile("isb");
+			asm volatile("dmb");
+			asm volatile("dsb");
 			localWrite = write;
 		}
 
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		T data	= elems[nextRead];
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		nextRead += 1;
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		nextRead &= (QUEUE_SIZE-1);
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		if ((nextRead & (BATCH_SIZE-1)) == 0)
 			read = nextRead;
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 
 		return data;
 	}
@@ -105,12 +168,24 @@ public:
 	///									was about to write a next item?
 	///	(nextRead != write)			==> has the producer produced new items yet?
 	bool can_deq() {
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		return (nextRead != localWrite || ((localWrite = write) != nextRead));
 	}
 
 	bool try_deq(T* elem) {
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		if (can_deq()) {
+			asm volatile("isb");
+			asm volatile("dmb");
+			asm volatile("dsb");
 			*elem = deq();
+			asm volatile("isb");
+			asm volatile("dmb");
+			asm volatile("dsb");
 			return true;
 		}
 		else {
@@ -123,6 +198,9 @@ public:
 
 		int w = write, r = read;
 
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		if (w-r >= 0)
 			return w-r;
 		else
@@ -133,14 +211,29 @@ public:
 	/// and consider that when the queue has more than this value of items it is
 	/// saturating
 	int cont_load() {
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		double cf = ((double)CONT_FACTOR / 100.0);
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		//printf("CF = %lf, size = %d, load = %d\n", cf, QUEUE_SIZE, (int)(QUEUE_SIZE * cf));
 		return (int)(QUEUE_SIZE * cf);
 	}
 
 	void fsh() {
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		write = nextWrite;
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 		read = nextRead;
+		asm volatile("isb");
+		asm volatile("dmb");
+		asm volatile("dsb");
 	}
 };
 

@@ -6,7 +6,7 @@ SERRORS		= -Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-functi
 CFLAGS		= -g -std=gnu++11 -Wall -Werror -fpic $(SERRORS)
 INCLUDES	= -I"../../tga_driver/library"
 OPT_LVL		= -O0
-DBG_LVL		= 1
+DBG_LVL		= 0
 
 ifeq ($(ARCH),arm)
 CC	= arm-linux-gnueabihf-g++-5 -mcpu=cortex-a9
