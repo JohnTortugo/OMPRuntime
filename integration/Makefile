@@ -15,7 +15,7 @@ CC	= g++
 endif
 
 mtsp: $(OBJS)
-	$(CC) $(OBJS) $(INCLUDES) -DDBG_VAL=$(DBG_LVL) -shared -L./ -ltioga -o $(LIB_NAME)
+	$(CC) $(OBJS) $(INCLUDES) -shared -L./ -ltioga -o $(LIB_NAME)
 
 clean:
 	rm -rf $(OBJS) $(LIB_NAME)
@@ -25,4 +25,4 @@ remake:
 	@make
 	
 %.o: %.cpp
-	$(CC) -c $(CFLAGS) $(INCLUDES) $(OPT_LVL) $< -o $@ $(LINEAR_DEBUG)
+	$(CC) -c $(CFLAGS) $(INCLUDES) $(OPT_LVL) $< -o $@ -DDBG_VAL=$(DBG_LVL) 
