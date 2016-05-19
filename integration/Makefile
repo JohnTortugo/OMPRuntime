@@ -6,10 +6,7 @@ SERRORS		= -Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-functi
 CFLAGS		= -g -std=gnu++11 -Wall -Werror -fpic $(SERRORS)
 INCLUDES	= -I"../../tga_driver/library"
 OPT_LVL		= -O0
-
-ifdef DBG
-	LINEAR_DEBUG = -DLINEAR_DEBUG
-endif
+DBG_LVL		= 1
 
 ifeq ($(ARCH),arm)
 CC	= arm-linux-gnueabihf-g++-5 -mcpu=cortex-a9
@@ -18,10 +15,7 @@ CC	= g++
 endif
 
 mtsp: $(OBJS)
-	$(CC) $(OBJS) $(INCLUDES) -shared -L./ -ltioga -o $(LIB_NAME)
-
-static: $(OBJS)
-	ar rcs libmtsp.a $(OBJS) tioglib.o mem_interface.o
+	$(CC) $(OBJS) $(INCLUDES) -DDBG_VAL=$(DBG_LVL) -shared -L./ -ltioga -o $(LIB_NAME)
 
 clean:
 	rm -rf $(OBJS) $(LIB_NAME)

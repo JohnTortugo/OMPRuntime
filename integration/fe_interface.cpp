@@ -40,7 +40,11 @@ void __mtsp_init() {
 
 
 void __mtsp_enqueue_into_submission_queue(unsigned long long packet) {
-	while(!tga_subq_can_enq());
+	while(!tga_subq_can_enq())
+	{
+		printf("[mtsp:__mtsp_enqueue_into_submission_queue]: Waiting for subq_enq window.\n");
+		fflush(stdout);
+	}
 
 	tga_subq_enq(packet);
 }
@@ -70,7 +74,7 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 	/// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
     (microtask)(&tid, &tid, argvcp[0]);
 
-#ifdef DBG
+#if DBG(9)
     printf("Assuming the compiler or the programmer added a #pragma taskwait at the end of parallel for.\n");
 #endif
     __kmpc_omp_taskwait(nullptr, 0);
@@ -128,12 +132,12 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 	/// Obtain the id of the new task
 	new_task->part_id = freeSlots.deq();
-#ifdef DBG
+#if DBG(9)
 	mtsp_number_of_outstanding_task_descriptors = MAX_TASKS - freeSlots.cur_load();
 	printf("[mtsp:__kmpc_omp_task_with_deps]: Number of outstanding task descriptors: %d\n", mtsp_number_of_outstanding_task_descriptors);
 #endif
 
-#ifdef DBG
+#if DBG(9)
 	printf("[mtsp:kmp_omp_task_with_deps]: Pointer to the kmp_task structure received: %p\n", new_task);
 	printf("[mtsp:kmp_omp_task_with_deps]: Index of tasks where that pointer was stored: %d\n", new_task->part_id);
 #endif
@@ -143,10 +147,10 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 
 	/// Send the packet with the task descriptor
 	create_task_packet(subq_packet.payload, 0, (ndeps == 0), new_task->part_id);
-#ifdef LINEAR_DEBUG
-	printf("[mtsp:]\tSending task descriptor #%d to the submission queue.\n", number_of_task_descriptors_sent++);
+#if DBG(1)
+	printf("[mtsp:]\tSending task descriptor #%x to the submission queue.\n", number_of_task_descriptors_sent++);
 #endif
-#ifdef PRINT_PACKETS
+#if DBG(20)
 	printf("[mtsp:]\tSending task descriptor #%d to the submission queue:", number_of_task_descriptors_sent++);
 	print_num_in_chars(subq_packet.payload);
 	printf("\n");
@@ -158,6 +162,8 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	/// This was not the original place of this
 	ATOMIC_ADD(&__mtsp_inFlightTasks, (kmp_int32)1);
 
+	fflush(stdout);
+
 	/// Send the packets for each parameter
 	for (kmp_int32 i=0; i<ndeps; i++) {
 		unsigned char mode = deps[i].flags.in | (deps[i].flags.out << 1);
@@ -165,10 +171,10 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 		subq_packet.payload = encode_dep(mode, (i == (ndeps-1)), deps[i].base_addr);
 		//create_dep_packet(subq_packet.payload, mode, (i == (ndeps-1)), deps[i].base_addr);
 
-#ifdef LINEAR_DEBUG
-		printf("[mtsp:]\tSending dependence descriptor #%d to the submission queue.\n", number_of_dependence_descriptors_sent++);
+#if DBG(1)
+		printf("[mtsp:]\tSending dependence descriptor #%x to the submission queue.\n", number_of_dependence_descriptors_sent++);
 #endif
-#ifdef PRINT_PACKETS
+#if DBG(20)
 		print_num_in_chars(subq_packet.payload);
 #endif
 
@@ -188,14 +194,14 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	/// Reset the number of threads that have currently reached the barrier
 	ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
 
-#ifdef DBG
+#if DBG(9)
 	assert(__mtsp_threadWaitCounter == 0);
 #endif
 
 	/// Tell threads that they should synchronize at a barrier
 	ATOMIC_OR(&__mtsp_threadWait, 1);
 
-#ifdef DBG
+#if DBG(9)
 	assert(__mtsp_threadWait == 1);
 #endif
 
@@ -204,7 +210,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	{
 		if (!barrier_wait)
 		{
-#ifdef DBG
+#if DBG(9)
 			printf("[mtsp:__kmpc_omp_taskwait]: Waiting for %d threads to reach the barrier.\n", __mtsp_numWorkerThreads);
 #endif
 			barrier_wait = true;
@@ -215,11 +221,11 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	/// OK. Now all threads have reached the barrier. We now free then to continue execution
 	ATOMIC_AND(&__mtsp_threadWait, 0);
 
-#ifdef DBG
+#if DBG(9)
 	assert(__mtsp_threadWait == 0);
 #endif
 
-#ifdef DBG
+#if DBG(9)
 	printf("[mtsp:__kmpc_omp_taskwait]: Released threads for execution again.\n");
 #endif
 
@@ -229,7 +235,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 	{
 		if (!release_wait)
 		{
-#ifdef DBG
+#if DBG(9)
 			printf("[mtsp:__kmpc_omp_taskwait]: Waiting for %d threads to get notified about the release.\n", __mtsp_threadWaitCounter);
 #endif
 			release_wait = true;
@@ -244,7 +250,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 
 
 kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
-#ifdef LINEAR_DEBUG
+#if DBG(10)
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
 #endif
     return 0;
@@ -254,7 +260,7 @@ kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
 
 
 kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
-#ifdef LINEAR_DEBUG
+#if DBG(10)
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
 #endif
     return 1;
@@ -287,7 +293,7 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 
 
 kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
-#ifdef LINEAR_DEBUG
+#if DBG(10)
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
 #endif
 	return 1;
@@ -297,7 +303,7 @@ kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
 
 
 void __kmpc_end_master(ident* loc, kmp_int32 gtid) {
-#ifdef LINEAR_DEBUG
+#if DBG(10)
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
 #endif
 }
@@ -305,7 +311,7 @@ void __kmpc_end_master(ident* loc, kmp_int32 gtid) {
 
 
 int omp_get_num_threads() {
-#ifdef LINEAR_DEBUG
+#if DBG(10)
 	printf("Not implemented function was called. [%s, %d].\n", __FILE__, __LINE__);
 #endif
 	return 0;

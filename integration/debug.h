@@ -2,6 +2,8 @@
 	#define __MTSP_DEBUG_HEADER 1
 
 	#include "kmp.h"
+	
+	#define DBG(v) (DBG_VAL >= v)
 
 	void DEBUG_kmpc_fork_call(ident *loc, kmp_int32 argc);
 
