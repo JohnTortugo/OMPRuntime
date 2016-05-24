@@ -9,7 +9,7 @@ typedef enum { KERNEL_DISPATCH = 1, AGENT_DISPATCH = 2, DATA_MODE = 0 } HSA_QFea
 
 #define HWS_TASK_PACKET				0x1
 #define HWS_DEP_PACKET				0x2
-#define HWS_QOS						0x0
+#define HWS_QOS					0x0
 
 
 #define get_packet_type(var)    	(((var) & 0xC000000000000000) >> 62)
