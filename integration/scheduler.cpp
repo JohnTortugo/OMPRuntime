@@ -51,9 +51,11 @@ void* workerThreadCode(void* params) {
 	kmp_uint32* tasksIdent  = (kmp_uint32*) params;
 	kmp_uint16 myId 		= *tasksIdent;
 
+    asm volatile ("dsb");
+
 	while (true) {
 		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
-			taskSlot 	  = packet & 0x1FF;
+			taskSlot 	  = (packet & 0x7FF) / 4;
 		
 			//printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
 			taskToExecute = tasks[taskSlot];
@@ -69,6 +71,8 @@ void* workerThreadCode(void* params) {
 			printf("[mtsp]: Pointer of the encapsulated function to be run: %p\n", taskToExecute->routine);
 #endif
 			(*(taskToExecute->routine))(0, taskToExecute);
+    
+            asm volatile ("dsb");
 
 			tasksExecuted++;
 
