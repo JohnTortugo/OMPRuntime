@@ -4,17 +4,25 @@
 #include "kmp.h"
 #include "debug.h"
 
-#ifdef DBG
+#ifdef DEBUG_MODE
 	void DEBUG_kmpc_fork_call(ident *loc, kmp_int32 argc) {
 		fprintf(stderr, "Fork-call {\n");
-		fprintf(stderr, "\tLoc: %s\n", loc->psource);
+
+		if (loc != NULL) {
+			fprintf(stderr, "\tLoc: %s\n", loc->psource);
+		}
+
 		fprintf(stderr, "\tArgument count: %d\n", argc);
 		fprintf(stderr, "} // fork-call\n");
 	}
 
 	void DEBUG_kmpc_omp_task_alloc(ident *loc_ref, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry) {
 		fprintf(stderr, "\tTask_alloc: {\n");
-		fprintf(stderr, "\t\t loc_ref: %s\n", loc_ref->psource);
+
+		if (loc_ref != NULL) {
+			fprintf(stderr, "\t\t loc_ref: %s\n", loc_ref->psource);
+		}
+
 		fprintf(stderr, "\t\t gtid: %d\n", gtid);
 		fprintf(stderr, "\t\t flags: %X\n", pflags);
 		fprintf(stderr, "\t\t sz_task: %u\n", sizeof_kmp_task);
@@ -27,8 +35,12 @@
 		int i = 0;
 
 		fprintf(stderr, "\tTask_with_deps: {\n");
-		fprintf(stderr, "\t\t loc_ref: %s\n", loc_ref->psource);
-		fprintf(stderr, "\t\t flags: %X\n", loc_ref->flags);
+
+		if (loc_ref != NULL) {
+			fprintf(stderr, "\t\t loc_ref: %s\n", loc_ref->psource);
+			fprintf(stderr, "\t\t flags: %X\n", loc_ref->flags);
+		}
+
 		fprintf(stderr, "\t\t gtid: %X\n", gtid);
 		fprintf(stderr, "\t\t task: { \n");
 		fprintf(stderr, "\t\t\t routine: %p\n", new_task->routine);
@@ -61,7 +73,11 @@
 
 	void DEBUG_kmpc_omp_taskwait(ident *loc, kmp_int32 gtid) {
 		fprintf(stderr, "\tTask_wait: {\n");
-		fprintf(stderr, "\t\t loc_ref: %s\n", loc->psource);
+
+		if (loc != NULL) {
+			fprintf(stderr, "\t\t loc_ref: %s\n", loc->psource);
+		}
+		
 		fprintf(stderr, "\t\t gtid: %d\n", gtid);
 		fprintf(stderr, "\t}\n");
 	}
