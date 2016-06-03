@@ -254,6 +254,9 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	asm volatile("isb");
 	asm volatile("dmb");
 	asm volatile("dsb");
+
+    assert(new_task->part_id < MAX_TASKS);
+
 	tasks[new_task->part_id] = new_task;
 	asm volatile("isb");
 	asm volatile("dmb");
@@ -263,7 +266,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	asm volatile("isb");
 	asm volatile("dmb");
 	asm volatile("dsb");
-	create_task_packet(subq_packet.payload, 0, (ndeps == 0), (new_task->part_id) * 4);
+	create_task_packet(subq_packet.payload, 0, (ndeps == 0), (new_task->part_id) << 2);
 	asm volatile("isb");
 	asm volatile("dmb");
 	asm volatile("dsb");

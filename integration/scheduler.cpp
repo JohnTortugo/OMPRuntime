@@ -38,7 +38,7 @@ bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload)
 void __mtsp_enqueue_into_retirement_queue(unsigned long long int taskSlot) {
 	tga_retq_enq(taskSlot);
 
-	freeSlots.enq(taskSlot);
+	freeSlots.enq((taskSlot & 0x3FFFFFFFFFFFF) >> 2);
 }
 
 void* workerThreadCode(void* params) {
@@ -55,14 +55,16 @@ void* workerThreadCode(void* params) {
 
 	while (true) {
 		if ( __mtsp_dequeue_from_run_queue(&packet) ) {
-			taskSlot 	  = (packet & 0x7FF) / 4;
+			taskSlot 	  = (packet & 0x3FFFFFFFFFFFF) >> 2;
 		
 			//printf("[mtsp]: We are now going to get function information for the run-task with id = %d\n", taskSlot);
 			taskToExecute = tasks[taskSlot];
 
+            assert(taskToExecute != nullptr);
+
 			/// Start execution of the task
 #ifdef DBG
-			printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03x which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
+			printf(ANSI_COLOR_RED "[MTSP       ] Going to execute task from slot %03llx which points to %p\n" ANSI_COLOR_RESET, taskSlot, taskToExecute->routine);
 #endif
 #ifdef DBG
 			printf("[mtsp]: Pointer to the kmp_task structure holding the function to be run: %p\n", taskToExecute);
@@ -70,6 +72,9 @@ void* workerThreadCode(void* params) {
 #ifdef DBG
 			printf("[mtsp]: Pointer of the encapsulated function to be run: %p\n", taskToExecute->routine);
 #endif
+    
+            assert(taskToExecute->routine != nullptr);
+
 			(*(taskToExecute->routine))(0, taskToExecute);
     
             asm volatile ("dsb");
