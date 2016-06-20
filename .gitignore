@@ -1,2 +1,4 @@
-.o
-.so
+*.o
+*.so
+*.clang_complete
+*.log
