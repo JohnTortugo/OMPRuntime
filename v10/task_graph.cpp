@@ -18,6 +18,7 @@
 #include "task_graph.h"
 #include "dep_tracker.h"
 #include "scheduler.h"
+#include "fe_interface.h"
 #include "mtsp.h"
 
 bool 					taskGraphInitialized = false;
@@ -25,7 +26,7 @@ kmp_task*	volatile	tasks[MAX_TASKS];
 kmp_uint16 	volatile	depCounters[MAX_TASKS];
 kmp_uint16 	volatile	dependents[MAX_TASKS][MAX_DEPENDENTS+1];
 bool 		volatile	whoIDependOn[MAX_TASKS][MAX_DEPENDENTS+1];
-kmp_uint16 	volatile	freeSlots[MAX_TASKS + 1];
+//kmp_uint16 	volatile	freeSlots[MAX_TASKS + 1];
 
 std::string colorNames[] = {"red", "blue", "cyan", "magenta"};
 
@@ -68,49 +69,49 @@ std::string nextColor() {
 
 
 void __mtsp_dumpTaskGraphToDot() {
-	// Just for the node labels;
-	std::stringstream ss;
-
-	// identify which nodes are present in the TG
-	bool present[MAX_TASKS];
-
-	// at the begining everybody is present
-	for (int i=0; i<MAX_TASKS; i++) present[i] = true;
-
-	// the slots that are free are not present
-	for (int i=1; i<=freeSlots[0]; i++) present[freeSlots[i]] = false;
-
-	// Store the name of the task graph and its identifier
-	char fileName[100];
-	static int counter = 0;
-
-	// The "dot" file where we are going to write the graph
-	sprintf(fileName, "taskgraph_%04d.dot", counter++);
-
-	FILE* fp = fopen(fileName, "w+");
-
-	if (!fp) { fprintf(stderr, "It was impossible to write the dependenceGraph to a dot file [%s].\n", fileName); exit(-1); }
-
-	fprintf(fp, "digraph TaskGraph {\n");
-
-	// for each present node
-	for (int src=0; src<MAX_TASKS; src++) { if (present[src]) {
-//		if (colors.find(tasks[src]->routine) == colors.end())
-//			colors[tasks[src]->routine] = nextColor();
-
-		nodeLabel(ss, src);
-//		fprintf(fp, "Node_%04d [style=filled fillcolor=%s shape=\"Mrecord\" label=<%s>];\n", src, colors[tasks[src]->routine].c_str(), ss.str().c_str());
-		fprintf(fp, "Node_%04d [style=filled shape=\"Mrecord\" label=<%s>];\n", src, ss.str().c_str());
-
-		for (int j=1; j<=dependents[src][0]; j++) {
-			fprintf(fp, "Node_%04d -> Node_%04d;\n", src, dependents[src][j]);
-		}
-	}}
-
-	fprintf(fp, "}\n");
-	fclose(fp);
-
-	printf("Taskgraph written to file %s\n", fileName);
+//	// Just for the node labels;
+//	std::stringstream ss;
+//
+//	// identify which nodes are present in the TG
+//	bool present[MAX_TASKS];
+//
+//	// at the begining everybody is present
+//	for (int i=0; i<MAX_TASKS; i++) present[i] = true;
+//
+//	// the slots that are free are not present
+//	for (int i=1; i<=freeSlots[0]; i++) present[freeSlots[i]] = false;
+//
+//	// Store the name of the task graph and its identifier
+//	char fileName[100];
+//	static int counter = 0;
+//
+//	// The "dot" file where we are going to write the graph
+//	sprintf(fileName, "taskgraph_%04d.dot", counter++);
+//
+//	FILE* fp = fopen(fileName, "w+");
+//
+//	if (!fp) { fprintf(stderr, "It was impossible to write the dependenceGraph to a dot file [%s].\n", fileName); exit(-1); }
+//
+//	fprintf(fp, "digraph TaskGraph {\n");
+//
+//	// for each present node
+//	for (int src=0; src<MAX_TASKS; src++) { if (present[src]) {
+////		if (colors.find(tasks[src]->routine) == colors.end())
+////			colors[tasks[src]->routine] = nextColor();
+//
+//		nodeLabel(ss, src);
+////		fprintf(fp, "Node_%04d [style=filled fillcolor=%s shape=\"Mrecord\" label=<%s>];\n", src, colors[tasks[src]->routine].c_str(), ss.str().c_str());
+//		fprintf(fp, "Node_%04d [style=filled shape=\"Mrecord\" label=<%s>];\n", src, ss.str().c_str());
+//
+//		for (int j=1; j<=dependents[src][0]; j++) {
+//			fprintf(fp, "Node_%04d -> Node_%04d;\n", src, dependents[src][j]);
+//		}
+//	}}
+//
+//	fprintf(fp, "}\n");
+//	fclose(fp);
+//
+//	printf("Taskgraph written to file %s\n", fileName);
 }
 
 
@@ -119,7 +120,8 @@ void __mtsp_initializeTaskGraph() {
 	for (int i=0; i<MAX_TASKS; i++) {
 		tasks[i]			= nullptr;
 
-		freeSlots[i+1] 		= i;
+		//freeSlots[i+1] 		= i;
+		freeSlots.enq(i);
 
 		depCounters[i]		= 0;
 		dependents[i][0]	= 0;
@@ -128,7 +130,7 @@ void __mtsp_initializeTaskGraph() {
 			whoIDependOn[i][j] = false;
 	}
 
-	freeSlots[0] 			= MAX_TASKS;
+	//freeSlots[0] 			= MAX_TASKS;
 
 	// also initialize the scheduler and dependence tracker
 	__mtsp_initScheduler();
@@ -178,8 +180,9 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	depCounters[idOfFinishedTask] = 0;
 	tasks[idOfFinishedTask] = nullptr;
 
-	freeSlots[0]++;
-	freeSlots[freeSlots[0]] = idOfFinishedTask;
+	freeSlots.enq(idOfFinishedTask);
+	//freeSlots[0]++;
+	//freeSlots[freeSlots[0]] = idOfFinishedTask;
 
 	// Decrement the number of tasks in the system currently
 	ATOMIC_SUB(&__mtsp_inFlightTasks, (kmp_int32)1);

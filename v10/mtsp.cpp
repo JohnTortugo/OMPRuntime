@@ -32,9 +32,14 @@ kmp_uint32 						__mtsp_globalTaskCounter = 0;
 unsigned char volatile __mtsp_lock_initialized 	 = 0;
 unsigned char volatile __mtsp_lock_newTasksQueue = 0;
 
+
+MPMCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
+
 /// Variables/constants related to the the taskMetadata buffer
 bool volatile __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
+
+int mtsp_number_of_outstanding_task_descriptors = 0;
 
 /// Variables related to the coalescing framework
 std::map<kmp_uint64, std::pair<kmp_uint64, double>> taskSize;
@@ -114,12 +119,14 @@ unsigned long long beg_read_mtsp() {
 	unsigned int high, low=0;
 	unsigned long long cycles=0;
 
+#ifndef __arm__
 	asm volatile (	"CPUID\n\t"
 					"RDTSC\n\t"
 					"mov %%edx, %0\n\t"
 					"mov %%eax, %1\n\t": "=r" (high), "=r" (low) :: "%rax", "%rbx", "%rcx", "%rdx");
 
 	cycles = ((unsigned long long)high << 32) | low;
+#endif
 
 	return cycles;
 }
@@ -129,12 +136,14 @@ unsigned long long end_read_mtsp() {
 	unsigned int high, low=0;
 	unsigned long long cycles=0;
 
+#ifndef __arm__
 	asm volatile (	"RDTSCP\n\t"
 					"mov %%edx, %0\n\t"
 					"mov %%eax, %1\n\t"
 					"CPUID\n\t": "=r" (high), "=r" (low) :: "%rax", "%rbx", "%rcx", "%rdx");
 
 	cycles = ((unsigned long long)high << 32) | low;
+#endif
 
 	return cycles;
 }

@@ -92,7 +92,7 @@
 	    void *              	shareds;            /**< pointer to block of pointers to shared vars   */
 	    kmp_routine_entry 		routine;            /**< pointer to routine to call for executing task */
 	    mtsp_task_metadata*		metadata;        	/**< [MTSP] Actually this point to a metadata structure used by MTSP.  */
-	    kmp_int32           	_was_part_id;       /**< Currently not used in MTSP. */
+	    kmp_int32           	part_id;       /**< Currently not used in MTSP. */
 	    /*  private vars  */
 	} kmp_task;
 

@@ -5,7 +5,8 @@ USE_ITTN	= 0
 
 OPT_LVL	= 
 SERRORS	= #-Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value
-CFLAGS	= -g3 -std=c++11 -fpic $(SERRORS)
+CFLAGS  = -I../library/
+CFLAGS	+= -g3 -std=c++11 -fpic $(SERRORS)
 
 ifeq ($(USE_ITTN), 1)
 	CFLAGS += -L/opt/intel/vtune_amplifier_xe_2016.1.1.434111/lib64/libittnotify.a
@@ -14,7 +15,10 @@ ifeq ($(USE_ITTN), 1)
 endif
 
 ifeq ($(ARCH),arm)
-	CC=$(CROSS) -mcpu=cortex-a9
+ifndef CROSS
+$(error "You need to set the CROSS parameter to the name of the cross compiler.")
+endif
+	CC=$(CROSS)
 else
 	CC=g++
 endif
@@ -35,4 +39,4 @@ rebuild-run:
 	@make mtsp
 	
 %.o: %.cpp
-	g++ -c $(CFLAGS) $(OPT_LVL) $< -o $@
+	$(CC) -c $(CFLAGS) $(OPT_LVL) $< -o $@

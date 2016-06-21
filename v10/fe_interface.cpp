@@ -11,10 +11,11 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <map>
+#include <pthread.h>
 
-#include "pthread.h"
 #include "kmp.h"
 #include "mtsp.h"
+#include "hws.h"
 #include "task_graph.h"
 #include "scheduler.h"
 #include "fe_interface.h"
@@ -23,7 +24,73 @@ kmp_uint64 tasksExecutedByCT = 0;
 kmp_uint64 metadataRequestsNotServiced = 0;
 volatile kmp_uint64 tasksExecutedByRT = 0;
 
+volatile char hws_alive;
+
+pthread_t hwsThread;
+
+struct QDescriptor* __mtsp_SubmissionQueueDesc = nullptr;
+struct QDescriptor* __mtsp_RunQueueDesc = nullptr;
+struct QDescriptor* __mtsp_RetirementQueueDesc = nullptr;
+
 SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
+
+
+void __mtsp_enqueue_into_submission_queue(unsigned long long packet) {
+	while(!tga_subq_can_enq())
+	{
+		printf("[mtsp:__mtsp_enqueue_into_submission_queue]: Waiting for subq_enq window.\n");
+		fflush(stdout);
+	}
+
+	tga_subq_enq(packet);
+}
+
+static uint64_t encode_task(uint8_t prior, uint8_t ndeps, uint64_t WDPtr)
+{
+	uint64_t t_pkg = 0;
+
+	t_pkg |= ((uint64_t) 1 << 62);				//Package Type identifying bits
+	t_pkg |= ((uint64_t) 0 << 54);				//ASID
+	t_pkg |= ((uint64_t) prior << 52);				//QOS
+	t_pkg |= ((uint64_t) (ndeps == 0) << 50);
+	t_pkg |= ((uint64_t) WDPtr);			//WorkDescriptor
+
+	return t_pkg;
+}
+
+
+static uint64_t encode_dep(uint8_t mode, bool last, uint64_t varptr)
+{
+	uint64_t d_pkg = 0;
+
+	d_pkg |= ((uint64_t) 2 << 62);				//Package Type identifying bits
+	d_pkg |= ((uint64_t) 0 << 54);				//ASID
+	d_pkg |= ((uint64_t) mode << 52);			//QOS
+	d_pkg |= ((uint64_t) (last ? 1 : 0) << 50);
+	d_pkg |= ((uint64_t) varptr & 0x3ffffffffffff);			//dependence address
+
+	return d_pkg;
+}
+
+
+void __mtsp_initBridge() {
+
+	//1a: This initializes the auxiliary TGA library
+	tga_init();	
+
+	/// Initialize structures to store task metadata
+	for (int i=0; i<MAX_TASKS; i++) {
+		tasks[i] = nullptr;
+		freeSlots.enq(i);
+	}
+
+	/// Create worker threads
+	__mtsp_initScheduler();
+}
+
+
+
+
 
 void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 	int i 			= 0;
@@ -31,6 +98,13 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     void** argv 	= (void **) malloc(sizeof(void *) * argc);
     void** argvcp 	= argv;
     va_list ap;
+
+#ifndef __arm__
+	if (BRIDGE_MODE) {
+		printf("******** WARNING: You did not compile the runtime with an ARM compiler.\n");
+		exit(1);
+	}
+#endif
 
     // Check whether the runtime library is initialized
     ACQUIRE(&__mtsp_lock_initialized);
@@ -44,7 +118,12 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
     	//===-------- The thread that initialize the runtime is the Control Thread ----------===//
     	__itt_thread_set_name("ControlThread");
 
-    	__mtsp_initialize();
+		if (BRIDGE_MODE) {
+			__mtsp_initBridge();
+		}
+		else {
+			__mtsp_initialize();
+		}
     }
 
 	__mtsp_reInitialize();
@@ -120,23 +199,59 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 }
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_With_Deps);
+	if (BRIDGE_MODE) {
+		static int number_of_task_descriptors_sent = 0;
+		static int number_of_dependence_descriptors_sent = 0;
+		SQPacket subq_packet;
+
+		/// Obtain the id of the new task
+
+		new_task->part_id = freeSlots.deq();
+
+		/// Store the pointer to the task metadata
+		assert(new_task->part_id < MAX_TASKS);
+		tasks[new_task->part_id] = new_task;
+
+		/// Send the packet with the task descriptor
+		create_task_packet(subq_packet.payload, 0, (ndeps == 0), (new_task->part_id) << 2);
+
+		__mtsp_enqueue_into_submission_queue(subq_packet.payload);
+
+		/// Increment the number of tasks currently in the system
+		/// This was not the original place of this
+		ATOMIC_ADD(&__mtsp_inFlightTasks, (kmp_int32)1);
+
+		fflush(stdout);
+
+		/// Send the packets for each parameter
+		for (kmp_int32 i=0; i<ndeps; i++) {
+			unsigned char mode = dep_list[i].flags.in | (dep_list[i].flags.out << 1);
+
+			subq_packet.payload = encode_dep(mode, (i == (ndeps-1)), dep_list[i].base_addr);
+
+			__mtsp_enqueue_into_submission_queue(subq_packet.payload);
+		}
+	}
+	else {
+		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_CT_Task_With_Deps);
 
 #ifdef SUBQUEUE_PATTERN
-	static std::map<kmp_uint64, kmp_uint64> taskTypes;
-	static kmp_uint64 counter=0; 
-	kmp_uint64 addr = (kmp_uint64) new_task->routine;
+		static std::map<kmp_uint64, kmp_uint64> taskTypes;
+		static kmp_uint64 counter=0; 
+		kmp_uint64 addr = (kmp_uint64) new_task->routine;
 
-	if (taskTypes.find(addr) == taskTypes.end())
-		taskTypes[addr] = taskTypes.size();
+		if (taskTypes.find(addr) == taskTypes.end())
+			taskTypes[addr] = taskTypes.size();
 
-	printf("%llu %u\n", counter++, taskTypes[addr]);
+		printf("%llu %u\n", counter++, taskTypes[addr]);
 #endif
 
-	// Ask to add this task to the task graph
-	__mtsp_addNewTask(new_task, ndeps, dep_list);
+		// Ask to add this task to the task graph
+		__mtsp_addNewTask(new_task, ndeps, dep_list);
 
-	__itt_task_end(__itt_mtsp_domain);
+		__itt_task_end(__itt_mtsp_domain);
+	}
+
 	return 0;
 }
 

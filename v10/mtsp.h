@@ -24,6 +24,8 @@
 	#include <utility>
 	#include <iostream>
 	#include <iomanip>
+	#include <cassert>
+	#include "tioglib.h"
 
 
 	//===----------------------------------------------------------------------===//
@@ -78,6 +80,8 @@
 
 	/// Number of task metadata slots
 	#define MAX_TASKMETADATA_SLOTS 		(MAX_TASKS + SUBMISSION_QUEUE_SIZE)
+
+	#define BRIDGE_MODE				(getenv("MTSP_BRIDGE_MODE") != NULL)
 
 	/// Just global constants recognized as \c LOCKED and \c UNLOCKED
 	#define LOCKED															1

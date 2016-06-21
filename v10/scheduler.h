@@ -51,4 +51,10 @@
 	 * main responsabilities is to create the worker threads.
 	 */
 	void __mtsp_initScheduler();
+
+	bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload);
+	void __mtsp_enqueue_into_retirement_queue(unsigned long long int taskSlot);
+
+	void* SoftwareWorkerThreadCode(void* params);
+	void* HardwareWorkerThreadCode(void* params);
 #endif
