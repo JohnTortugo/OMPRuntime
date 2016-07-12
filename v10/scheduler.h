@@ -25,6 +25,9 @@
 	/// tasks in all queues and in the task graph. The same task is not counted twice.
 	extern kmp_int32	volatile	__mtsp_inFlightTasks;
 
+	/// Number of direct children of the control thread
+	extern kmp_int32		volatile __ControlThreadDirectChild;
+
 	/// The number of active worker threads in the backend
 	extern kmp_uint32	volatile	__mtsp_numWorkerThreads;
 
@@ -36,6 +39,9 @@
 
 	/// Pointer to the list of worker threads IDs (may not start at 0)
 	extern kmp_uint32* 	volatile	workerThreadsIds;
+
+	/// Stores at each index i the ID j of the task that thread i is currently executing.
+	extern kmp_int32* 	volatile	idOfCurrentTask;
 
 	/// This is the famous Run Queue
 	extern SimpleQueue<kmp_task*, RUN_QUEUE_SIZE, RUN_QUEUE_CF> RunQueue;

@@ -218,8 +218,8 @@ private:
 	volatile unsigned int head;
 	volatile unsigned int tail;
 
-	volatile T* data;
-	volatile bool* status;
+	volatile T * volatile data;
+	volatile bool * volatile status;
 	volatile bool rlock;
 	volatile bool wlock;
 

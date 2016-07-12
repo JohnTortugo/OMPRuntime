@@ -17,8 +17,10 @@
 	extern kmp_uint64 metadataRequestsNotServiced;
 	extern volatile kmp_uint64 tasksExecutedByRT;
 
-	extern SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
+	extern SimpleQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
 
+	extern std::map<kmp_critical_name*, bool> criticalRegions;
+	extern volatile bool crit_reg_lock;
 
 	extern pthread_t hwsThread;
 
@@ -199,5 +201,11 @@
 		 * @return 	The number of threads currently in the system.
 		 */
 		int omp_get_num_threads();
+		int omp_get_thread_num();
+		int __kmpc_global_thread_num(ident* loc);
+		void __kmpc_taskgroup(ident* loc, kmp_int32 gtid);
+		void __kmpc_end_taskgroup(ident* loc, kmp_int32 gtid);
+		void __kmpc_critical(ident* loc, kmp_int32 gtid, kmp_critical_name* name);
+		void __kmpc_end_critical(ident* loc, kmp_int32 gtid, kmp_critical_name* name);
 	}
 #endif

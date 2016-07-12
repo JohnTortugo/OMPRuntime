@@ -59,7 +59,7 @@
 	#define MTSP_DUMP_STATS					1
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
-	#define MAX_TASKS 					     		       512
+	#define MAX_TASKS 					     		       8192
 	#define MAX_DEPENDENTS						  	  MAX_TASKS
 
 	/// Represents the maximum number of tasks in the Submission Queue
@@ -72,7 +72,7 @@
 	#define RUN_QUEUE_CF			    		 			 50
 
 	/// Represents the maximum number of tasks in the Retirement Queue
-	#define RETIREMENT_QUEUE_SIZE								4*MAX_TASKS
+	#define RETIREMENT_QUEUE_SIZE					4*MAX_TASKS
 
 	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
 	/// larger than this will use a memory region returned by a call to std malloc.
@@ -86,12 +86,6 @@
 	/// Just global constants recognized as \c LOCKED and \c UNLOCKED
 	#define LOCKED															1
 	#define UNLOCKED														0
-
-	/// When we enable thread pinning these defines are used to say in which
-	/// core the runtime and the control thread will stay
-	#define __MTSP_MAIN_THREAD_CORE__										2
-	#define __MTSP_RUNTIME_THREAD_CORE__									3
-
 
 
 
@@ -134,6 +128,8 @@
 
 	/// This variable is used as a lock. The lock is used when initializing the MTSP runtime.
 	extern unsigned char volatile __mtsp_lock_initialized;
+
+	extern __thread unsigned int threadId;
 
 	/// This variable is used as a lock. The lock is used in the \c kmpc_omp_single 
 	extern bool volatile __mtsp_Single;
@@ -336,14 +332,6 @@
 
 	/// Used to read MTSP at the beggining of a region
 	unsigned long long beg_read_mtsp();
-
-	/**
-	 * When thread pinning is enabled this is the function that all threads call
-	 * in order to be pinned to a desired core.
-	 *
-	 * @param core_id		ID of the core that the threads wants to execute on.
-	 */
-	int stick_this_thread_to_core(const char* const pref, int core_id);
 
 	/**
 	 * This function is executed every time that MTSP enters a new parallel region.

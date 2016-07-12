@@ -10,7 +10,7 @@
 	#include "mtsp.h"
 
 	/// Tells whether we have already initialized the task graph data structures
-	extern bool 							taskGraphInitialized;
+	extern bool 				volatile	taskGraphInitialized;
 
 	/// Each position stores a pointer to a task descriptor for a task present in the task graph.
 	extern kmp_task* 			volatile 	tasks[MAX_TASKS];
@@ -20,6 +20,9 @@
 
 	// dependents[i][0] tells how many depends task 'i' has, these depends are listed on the subsequent dependents[i][1...]
 	extern kmp_uint16 			volatile	dependents[MAX_TASKS][MAX_DEPENDENTS+1];
+
+	// pcGraph[i] tells who are the *current* children of the task 'i'.
+	extern std::set<kmp_task*>* volatile	pcGraph[MAX_TASKS];
 
 	// If a position whoIDependOn[i][j] is true then task 'i' depends on task 'j'
 	extern bool 				volatile	whoIDependOn[MAX_TASKS][MAX_DEPENDENTS+1];

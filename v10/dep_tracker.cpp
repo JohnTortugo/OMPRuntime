@@ -53,6 +53,7 @@ void releaseDependencies(kmp_int16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depen
 	__itt_task_end(__itt_mtsp_domain);
 }
 
+#define DEBUG_MODE 1
 kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, kmp_depend_info* depList) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Checking_Dependences);
 
@@ -61,9 +62,14 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 	// Iterate over each dependence
 	for (kmp_uint32 depIdx=0; depIdx<ndeps; depIdx++) {
 		auto baseAddr 	= depList[depIdx].base_addr;
+		auto len		= depList[depIdx].len;
 		auto hashEntry 	= dependenceTable.find(baseAddr);
 		bool isInput	= depList[depIdx].flags.in;
 		bool isOutput	= depList[depIdx].flags.out;
+
+#if DEBUG_MODE
+		printf("\t[addr=%x] [len=%d] [rw=%d%d]\n", baseAddr, len, isInput, isOutput);
+#endif
 
 		// <ID_OF_LAST_WRITER, IDS_OF_CURRENT_READERS>
 		std::pair<kmp_int32, std::vector<kmp_int32>> hashValue;
@@ -84,14 +90,16 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					// The new task become dependent on all previous readers
 					for (auto& idReader : hashValue.second) {
 						// If the new task does not already depends on the reader, it now becomes dependent
-						if (whoIDependOn[newTaskId][idReader] == false) {
+						if (whoIDependOn[newTaskId][idReader] == false && newTaskId != idReader) {
 							whoIDependOn[newTaskId][idReader] = true;
 							depCounter++;
 
 							dependents[idReader][0]++;
 							dependents[idReader][ dependents[idReader][0] ] = newTaskId;
 
-#ifdef DEBUG_MODE
+#if DEBUG_MODE
+							printf("\t%d[%x] depends on %d\n", newTaskId, baseAddr, idReader);
+
 							if (dependents[idReader][0] >= MAX_DEPENDENTS) {
 								printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
 								exit(-1);
@@ -104,14 +112,16 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					kmp_int32 lastWriterId = hashValue.first;
 
 					// If the new task does not already depends on the writer, it now becomes dependent
-					if (whoIDependOn[newTaskId][lastWriterId] == false) {
+					if (whoIDependOn[newTaskId][lastWriterId] == false && lastWriterId != newTaskId) {
 						whoIDependOn[newTaskId][lastWriterId] = true;
 
 						dependents[lastWriterId][0]++;
 						dependents[lastWriterId][ dependents[lastWriterId][0] ] = newTaskId;
 						depCounter++;
 
-#ifdef DEBUG_MODE
+#if DEBUG_MODE
+						printf("\t%d[%x] depends on %d\n", newTaskId, baseAddr, lastWriterId);
+
 						if (dependents[lastWriterId][0] >= MAX_DEPENDENTS) {
 							printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
 							exit(-1);
@@ -132,13 +142,16 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					kmp_int32 lastWriterId = hashValue.first;
 
 					// If the new task does not already depends on the writer, it now becomes dependent
-					if (whoIDependOn[newTaskId][lastWriterId] == false) {
+					if (whoIDependOn[newTaskId][lastWriterId] == false && newTaskId != lastWriterId) {
 						whoIDependOn[newTaskId][lastWriterId] = true;
 
 						dependents[lastWriterId][0]++;
 						dependents[lastWriterId][ dependents[lastWriterId][0] ] = newTaskId;
 						depCounter++;
-#ifdef DEBUG_MODE
+
+#if DEBUG_MODE
+						printf("\t%d[%x] depends on %d\n", newTaskId, baseAddr, lastWriterId);
+
 						if (dependents[lastWriterId][0] >= MAX_DEPENDENTS) {
 							printf("********* CRITICAL: Trying add more dependents than possible. [%s, %d].\n", __FILE__, __LINE__);
 							__mtsp_dumpTaskGraphToDot();
@@ -168,6 +181,14 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 		dependenceTable[baseAddr] = hashValue;
 	}
 
+#if DEBUG_MODE
+	if (depCounter == 0)
+		printf("\tTask %d has no dependencies..\n", newTaskId);
+	else
+		printf("\tTask %d has dependencies [%x]..\n", newTaskId, depCounter);
+#endif
+
 	__itt_task_end(__itt_mtsp_domain);
 	return depCounter;
 }
+#undef DEBUG_MODE

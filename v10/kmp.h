@@ -47,6 +47,7 @@
 	typedef void (*kmpc_micro) (kmp_int32 * global_tid, kmp_int32 * local_tid, ...);
 	typedef kmp_int32 (* kmp_routine_entry)(kmp_int32, void *);
 
+	typedef kmp_int32 			kmp_critical_name[8];
 
 
 
@@ -79,6 +80,17 @@
 		kmp_int16 taskgraph_slot_id;
 		kmp_int32 ndeps;
 		kmp_depend_info* dep_list;
+
+		// Number of direct child that this task has and are still alive
+		volatile kmp_int32 numDirectChild;
+
+		// Tells whether the value in parentTaskId is the original parent of this task
+		volatile bool parentReseted;
+
+		// TaskID of the task that created this task
+		volatile kmp_int32 parentTaskId;
+
+		// Unique taskId across the whole execution of the parallel region
 		kmp_uint32 globalTaskId;
 		kmp_uint64 taskSize;
 		kmp_uint64 coalesceSize;
@@ -91,7 +103,7 @@
 	typedef struct _kmp_task {
 	    void *              	shareds;            /**< pointer to block of pointers to shared vars   */
 	    kmp_routine_entry 		routine;            /**< pointer to routine to call for executing task */
-	    mtsp_task_metadata*		metadata;        	/**< [MTSP] Actually this point to a metadata structure used by MTSP.  */
+	    volatile mtsp_task_metadata*		metadata;        	/**< [MTSP] Actually this point to a metadata structure used by MTSP.  */
 	    kmp_int32           	part_id;       /**< Currently not used in MTSP. */
 	    /*  private vars  */
 	} kmp_task;

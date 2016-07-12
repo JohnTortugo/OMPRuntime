@@ -25,6 +25,8 @@ bool 				volatile 	__mtsp_initialized 	= false;
 pthread_t 						__mtsp_RuntimeThread;
 bool 				volatile 	__mtsp_Single 		= false;
 
+__thread unsigned int threadId = 0;
+
 kmp_uint32 						__mtsp_globalTaskCounter = 0;
 
 
@@ -166,25 +168,6 @@ void debug() {
 }
 
 
-int stick_this_thread_to_core(const char* const pref, int core_id) {
-//	int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-//
-//	if (core_id >= num_cores)
-//		return -1;
-//
-//	cpu_set_t cpuset;
-//	CPU_ZERO(&cpuset);
-//	CPU_SET(core_id, &cpuset);
-//
-//	pthread_t current_thread = pthread_self();
-//
-//	pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
-//
-//	printf("%s executing now on core %d\n", pref, sched_getcpu());
-
-	return 0;
-}
-
 void updateAverageTaskSize(kmp_uint64 taskAddr, double size) {
 	double newMed=0, sum=0;
 
@@ -273,14 +256,14 @@ void __mtsp_initialize() {
 		__mtsp_taskMetadataStatus[i] = false;
 	}
 
-	/// This the original main thread to core-0
-	stick_this_thread_to_core("ControlThread", __MTSP_MAIN_THREAD_CORE__);
-
-
-
 	//===-------- Initialize the task graph manager ----------===//
 	__mtsp_initializeTaskGraph();
 
+	//===---- The control thread is the parent of all tasks but starts executing no task ----------===//
+	idOfCurrentTask[0] = -1;
+
+	//===---- Thread local storage. The control thread have the ID 0 ----------===//
+	threadId = 0;
 }
 
 void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
@@ -293,10 +276,6 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 		steal_from_single_run_queue(true);
 	}
 #endif
-
-	// This is a global counter for we identify the task across the whole prog. execution
-	newTask->metadata->globalTaskId = __mtsp_globalTaskCounter++;
-
 
 	// Increment the number of tasks in the system currently
 	ATOMIC_ADD(&__mtsp_inFlightTasks, (kmp_int32)1);
@@ -508,14 +487,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 	//===-------- Initialize VTune/libittnotify related stuff ----------===//
 	__itt_thread_set_name("MTSPRuntime");
 
-	stick_this_thread_to_core("RuntimeThread", __MTSP_RUNTIME_THREAD_CORE__);
 	kmp_task* task = nullptr;
-	kmp_uint64 iterations = 0;
-	kmp_uint64 BatchSize = (64 - 1);	// should be 2^N - 1
-
-	// Used for task coalescing
-	restartCoalesce();
-	kmp_uint64 prevRoutine = 0;
 
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Main_Loop);
 	while (true) {
@@ -523,19 +495,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		// Check if the execution of a task has been completed
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Del);
 		if (RetirementQueue.try_deq(&task)) {
-			if (task->metadata->coalesceSize > 0) {
-				for (int idx=0; idx<task->metadata->coalesceSize; idx++) {
-					kmp_task* finTask = task->metadata->coalesced[idx];
-
-					updateAverageTaskSize((kmp_uint64) finTask->routine, finTask->metadata->taskSize);
-				}
-			}
-			else {
-				updateAverageTaskSize((kmp_uint64) task->routine, task->metadata->taskSize);
-			}
-			
 			removeFromTaskGraph(task);
-
 		}
 		__itt_task_end(__itt_mtsp_domain);
 
@@ -544,81 +504,15 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 		// Check if there is any request for new thread creation
 		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Add);
 		if (freeSlots.cur_load() > 0 && submissionQueue.try_deq(&task)) {
-			// Obtain an ID for the new task
-			task->metadata->taskgraph_slot_id = freeSlots.deq();//   freeSlots[ freeSlots[0] ];
-			//freeSlots[0]--;
-
-			// This is the address of the new task
-			kmp_uint64 taskAddr = (kmp_uint64) task->routine;
-
-			// If it is ignored for coalescing then we just add it to the graph
-			if (coalBlacklist.find(taskAddr) != coalBlacklist.end()) {
-				if (hasPendingCoalesce()) {
-					saveCoalesce();
-					restartCoalesce();
-				}
-
-				addToTaskGraph(task);
-				prevRoutine = 0;
-			}
-			else {
-				if ((kmp_uint64) task->routine == prevRoutine) {
-					increaseCoalesce(task);
-				}
-				else {
-					if (hasPendingCoalesce()) {
-						saveCoalesce();
-						restartCoalesce();
-					}
-
-					__tgtCoalL = howManyShouldBeCoalesced(taskAddr);
-
-					if (__tgtCoalL == 99) { // no need
-						addToTaskGraph(task);
-//						coalBlacklist.insert(taskAddr);
-						prevRoutine = 0;
-					}
-					else if (__tgtCoalL == 100) {	// impossible
-//						coalBlacklist.insert(taskAddr);
-						addToTaskGraph(task);
-						prevRoutine = 0;
-					}
-					else {
-						increaseCoalesce(task);
-						prevRoutine = taskAddr;
-					}
-				}
-			}
-		}
-		else if (freeSlots.cur_load() == 0 && hasPendingCoalesce()) {
-			saveCoalesce();
-			restartCoalesce();
-		}
-
-		__itt_task_end(__itt_mtsp_domain);
-
-
-
-
-		// -------------------------------------------------------------------------------
-		// Execute other "infrequent" bookkeeping tasks
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_RT_Check_Oth);
-		iterations++;
-		if ((iterations & BatchSize) == 0) {
-			submissionQueue.fsh();
-
-			if (__mtsp_threadWait && hasPendingCoalesce()) {
-				saveCoalesce();
-				restartCoalesce();
-			}
-
-#ifdef MTSP_WORKSTEALING_RT
-			if (RunQueue.cur_load() > __mtsp_numWorkerThreads) {		// may be we should consider the CT also
-				__mtsp_RuntimeWorkSteal();
-			}
-#endif
+			task->metadata->taskgraph_slot_id = freeSlots.deq();
+	
+			addToTaskGraph(task);
 		}
 		__itt_task_end(__itt_mtsp_domain);
+
+		//if (__mtsp_inFlightTasks >= 10) {
+		//	__mtsp_dumpTaskGraphToDot();
+		//}
 	}
 	__itt_task_end(__itt_mtsp_domain);
 

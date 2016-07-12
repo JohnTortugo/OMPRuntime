@@ -6,7 +6,7 @@ USE_ITTN	= 0
 OPT_LVL	= 
 SERRORS	= #-Wno-unused-variable -Wno-format -Wno-error=format -Wno-unused-function -Wno-unused-value
 CFLAGS  = -I../library/
-CFLAGS	+= -g3 -std=c++11 -fpic $(SERRORS)
+CFLAGS	+= -g -std=c++11 -fpic $(SERRORS)
 
 ifeq ($(USE_ITTN), 1)
 	CFLAGS += -L/opt/intel/vtune_amplifier_xe_2016.1.1.434111/lib64/libittnotify.a
