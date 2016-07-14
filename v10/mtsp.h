@@ -34,29 +34,12 @@
 	//
 	//===----------------------------------------------------------------------===//
 
-	/// This is used to when we want to see the sequence of task types that were 
-	/// entered in the submission queue
-///	#define SUBQUEUE_PATTERN				1	
-
 	/// Enable or Disable security checks (i.e., overflow on queues, etc.)
-//	#define DEBUG_MODE						1
-// 	#define DEBUG_COAL_MODE					1
+	#define DEBUG_MODE						0
 
 	/// Enable the exportation of the whole task graph to .dot
 	/// remember to reserve a large space for task graph, submission queue, run queue, etc.
 ///	#define TG_DUMP_MODE					1
-
-	/// Activate (when undefined) or deactivate (when defined) ITTNotify Events
-///	#define	INTEL_NO_ITTNOFIFY_API			1
-
-	/// Uncomment if you want the CT to steal work
-//	#define MTSP_WORKSTEALING_CT			1
-
-	/// Uncomment if you want the RT to steal work
-//	#define MTSP_WORKSTEALING_RT			1
-
-	/// Uncomment if you want to see some statistics at the end of
-	#define MTSP_DUMP_STATS					1
 
 	/// Represents the maximum number of tasks that can be stored in the task graph
 	#define MAX_TASKS 					     		       8192
@@ -156,66 +139,6 @@
 	/////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////////////
-	// Variables related to the coalescing framework
-	
-	/// Used to store the harmonic average execution time of tasks, runtime and coalescing
-	/// routines. The key is any integer, usually the address of the task or routine.
-	/// The value is pair [integer:double]. The first of these is the number of items that
-	/// were averaged, the second is the value of the average.
-	extern std::map<kmp_uint64, std::pair<kmp_uint64, double>> taskSize;
-	extern std::map<kmp_uint64, bool> realTasks;
-
-	// Tasks that have they address here will not be considered for coalescing anymore
-	extern std::set<kmp_uint64> coalBlacklist;
-
-	// This will store parameter addresses in order to compute how many
-	// unique addresses there are inside a coalesce
-	extern std::set<kmp_uint64> uniqueAddrs;
-	extern double __coalHowManyAddrs;
-
-	// This is the task that store the coalesced subtasks
-	extern kmp_task* coalescedTask;
-
-	/// This is the size of the current coalescing being constructed.
-	extern kmp_int16 __curCoalesceSize;
-
-	// This is the current linearity factor
-	extern double __curCoalL;
-
-	// This is the target linearity factor
-	extern double __tgtCoalL;
-
-	/// the number of times that coalescing was deemed necessary. I.e., the system can
-	/// and should amortize the execution of tasks.
-	extern kmp_int64 __coalNecessary;
-
-	/// the number of times that coalescing was deemed unnecessary. I.e., the task size
-	/// is sufficiently large to amortize the runtime overhead.
-	extern kmp_int64 __coalUnnecessary;
-
-	/// the number of times that coalescing was deemed impossible. I.e., the overhead
-	/// of the runtime and the coalescing framework is too high for this target task
-	/// size and number of worker threads.
-	extern kmp_int64 __coalImpossible;
-
-	/// the number of times that coalescing was deemed overflowed. I.e., the target
-	/// size of the coalescing was greater than the allocated resources.
-	extern kmp_int64 __coalOverflowed;
-
-	/// Number of times that was possible to create a full coalescing. I.e., the
-	/// \c __curCoalesceSize reached \c __curTargetCoalescingSize
-	extern kmp_int64 __coalSuccess;
-
-	/// Number of times that was not possible to complete the coalescing. I.e., 
-	/// \c __curCoalesceSize did not reached \c __curTargetCoalescingSize because
-	/// there was not sufficiently equal tasks in a row.
-	extern kmp_int64 __coalFailed;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////
-	/////////////////////////////////////////////////////////////////////////////////////
-	/////////////////////////////////////////////////////////////////////////////////////
-	/////////////////////////////////////////////////////////////////////////////////////
 	// These vars are used to interact with VTune
 #if ! USE_ITTNOTIFY
 	typedef struct ___itt_domain
@@ -296,9 +219,6 @@
 	/// Label for itt-events representing periods where an worker thread was waiting for tasks to execute
 	extern __itt_string_handle* volatile __itt_WT_Wait_For_Work;
 
-	/// Label for itt-events representing periods where an worker thread was executing a task
-	extern __itt_string_handle* volatile __itt_Coalescing;
-	extern __itt_string_handle* volatile __itt_Coal_In_Execution;
 	extern __itt_string_handle* volatile __itt_Task_In_Execution;
 
 	/// Label for itt-events representing periods where an thread stealing tasks
@@ -334,12 +254,6 @@
 	unsigned long long beg_read_mtsp();
 
 	/**
-	 * This function is executed every time that MTSP enters a new parallel region.
-	 * It is responsible for re-initializing all global variables/data structures.
-	 */
-	void __mtsp_reInitialize();
-
-	/**
 	 * This function is the one responsible for initializing the MTSP runtime itself.
 	 * It is called from inside the \c __kmpc_fork_call by the control thread the first
 	 * time it encounters a parallel region. This function will call another functions
@@ -369,34 +283,5 @@
 	 * @return 				nullptr.
 	 */
 	void* __mtsp_RuntimeThreadCode(void* params);
-
-	/**
-	 * This function is the one used for updating the average execution time of any piece of
-	 * code. The function do not keep track of the history of execution times, it uses a
-	 * simple algebra to update the average.
-	 *
-	 * @param taskAddr	Identification of the code snippet.
-	 * @param size		Execute time (in cycles) of the code.
-	 */
-	void updateAverageTaskSize(kmp_uint64 taskAddr, double size);
-
-	/**
-	 * This function is an "artificial task" used to execute a group of tasks that have
-	 * been coalesced together.
-	 *
-	 * @param notUsed	Currently useless. Just Clang boiler plate.
-	 * @param param		Used to pass all parameters to the task.
-	 */
-	extern int executeCoalesced(int notUsed, void* param);
-
-	/**
-	 * This function is used when the runtime wants to add a new coalesced task to the
-	 * task graph. That is, the coalescing framework decided to coalesce a sequence of
-	 * tasks and subsequently created a group of tasks (i.e., a coalesce) and now wants
-	 * to add this "macro task" to the task graph.
-	 *
-	 * @param coalescedTask		A pointer to the "artifical task" that will execute a group of subtasks that were coalesced together.
-	 */
-	void saveCoalesce();
 
 #endif

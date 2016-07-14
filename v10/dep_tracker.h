@@ -7,6 +7,7 @@
 
 	#include "kmp.h"
 	#include "mtsp.h"
+	#include "task_graph.h"
 	#include <map>
 	#include <utility>
 
@@ -65,6 +66,18 @@
 	 * @param ndeps					Number of possible memory addresses that this task access.
 	 * @param depList				List of possible memory addresse that this task access.
 	 */
-	kmp_uint64 checkAndUpdateDependencies(kmp_uint16 taskId, kmp_uint32 ndeps, kmp_depend_info* depList);
+	kmp_uint64 checkAndUpdateDependencies(kmp_uint16 taskId, kmp_int16 parentTaskId, kmp_uint32 ndeps, kmp_depend_info* depList);
+
+
+	inline bool areSibling(kmp_uint16 parentTaskId1, kmp_uint16 parentTaskId2) {
+#if DEBUG_MODE
+		if (parentTaskId1 == parentTaskId2)
+			printf("2) Task %d and %d ARE siblings.\n", parentTaskId1, parentTaskId2);
+		else
+			printf("3) Task %d and %d aren't siblings.\n", parentTaskId1, parentTaskId2);
+#endif
+
+		return parentTaskId1 == parentTaskId2;
+	}
 
 #endif

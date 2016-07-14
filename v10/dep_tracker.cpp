@@ -53,8 +53,7 @@ void releaseDependencies(kmp_int16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depen
 	__itt_task_end(__itt_mtsp_domain);
 }
 
-#define DEBUG_MODE 1
-kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, kmp_depend_info* depList) {
+kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_int16 parentTaskId, kmp_uint32 ndeps, kmp_depend_info* depList) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Checking_Dependences);
 
 	kmp_uint64 depCounter = 0;
@@ -90,7 +89,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					// The new task become dependent on all previous readers
 					for (auto& idReader : hashValue.second) {
 						// If the new task does not already depends on the reader, it now becomes dependent
-						if (whoIDependOn[newTaskId][idReader] == false && newTaskId != idReader) {
+						if (whoIDependOn[newTaskId][idReader] == false && newTaskId != idReader && areSibling(parentTaskId, tasks[idReader]->metadata->parentTaskId)) {
 							whoIDependOn[newTaskId][idReader] = true;
 							depCounter++;
 
@@ -112,7 +111,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					kmp_int32 lastWriterId = hashValue.first;
 
 					// If the new task does not already depends on the writer, it now becomes dependent
-					if (whoIDependOn[newTaskId][lastWriterId] == false && lastWriterId != newTaskId) {
+					if (whoIDependOn[newTaskId][lastWriterId] == false && lastWriterId != newTaskId && areSibling(parentTaskId, tasks[lastWriterId]->metadata->parentTaskId)) {
 						whoIDependOn[newTaskId][lastWriterId] = true;
 
 						dependents[lastWriterId][0]++;
@@ -142,7 +141,7 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 					kmp_int32 lastWriterId = hashValue.first;
 
 					// If the new task does not already depends on the writer, it now becomes dependent
-					if (whoIDependOn[newTaskId][lastWriterId] == false && newTaskId != lastWriterId) {
+					if (whoIDependOn[newTaskId][lastWriterId] == false && newTaskId != lastWriterId && areSibling(parentTaskId, tasks[lastWriterId]->metadata->parentTaskId)) {
 						whoIDependOn[newTaskId][lastWriterId] = true;
 
 						dependents[lastWriterId][0]++;
@@ -191,4 +190,3 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 	__itt_task_end(__itt_mtsp_domain);
 	return depCounter;
 }
-#undef DEBUG_MODE

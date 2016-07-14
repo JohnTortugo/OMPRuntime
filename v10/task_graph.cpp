@@ -254,7 +254,7 @@ void addToTaskGraph(kmp_task* newTask) {
 #endif
 
 	// depPattern stores a bit pattern representing the dependences of the new task
-	kmp_uint64 depCounter = checkAndUpdateDependencies(newTaskId, ndeps, depList);
+	kmp_uint64 depCounter = checkAndUpdateDependencies(newTaskId, newTask->metadata->parentTaskId, ndeps, depList);
 
 	// stores the new task dependence pattern
 	depCounters[newTaskId] = depCounter;

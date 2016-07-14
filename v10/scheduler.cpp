@@ -57,31 +57,6 @@ bool __mtsp_dequeue_from_run_queue(unsigned long long int* payload)
     }
 }
 
-
-int executeCoalesced(int notUsed, void* param) {
-	kmp_task* coalescedTask = (kmp_task*) param;
-
-	kmp_uint64 start, end;
-
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Coal_In_Execution);
-
-	for (int i=0; i<coalescedTask->metadata->coalesceSize; i++) {
-		kmp_task* taskToExecute = coalescedTask->metadata->coalesced[i];
-
-		start = beg_read_mtsp();
-		(*(taskToExecute->routine))(0, taskToExecute);
-		end = end_read_mtsp();
-		taskToExecute->metadata->taskSize = (end - start);
-
-#ifdef MTSP_DUMP_STATS
-		realTasks[(kmp_uint64) taskToExecute->routine] = true;
-#endif
-	}
-
-	__itt_task_end(__itt_mtsp_domain);
-}
-
-
 void* WorkerThreadCode(void* params) {
 	kmp_task* taskToExecute = nullptr;
 

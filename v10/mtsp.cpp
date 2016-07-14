@@ -41,30 +41,6 @@ MPMCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
 bool volatile __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
-int mtsp_number_of_outstanding_task_descriptors = 0;
-
-/// Variables related to the coalescing framework
-std::map<kmp_uint64, std::pair<kmp_uint64, double>> taskSize;
-std::map<kmp_uint64, bool> realTasks;
-
-std::set<kmp_uint64> coalBlacklist;
-
-std::set<kmp_uint64> uniqueAddrs;
-double __coalHowManyAddrs=0;
-
-double __curCoalL = 0;
-double __tgtCoalL = 0;
-kmp_int16 __curCoalesceSize = 0;
-kmp_task* coalescedTask = nullptr;
-
-kmp_int64 __coalNecessary = 0;
-kmp_int64 __coalUnnecessary = 0;
-kmp_int64 __coalImpossible = 0;
-kmp_int64 __coalOverflowed = 0;
-
-kmp_int64 __coalSuccess = 0;
-kmp_int64 __coalFailed = 0;
-
 
 
 
@@ -90,8 +66,6 @@ kmp_int64 __coalFailed = 0;
 	__itt_string_handle* volatile __itt_WT_Barrier = nullptr;
 	__itt_string_handle* volatile __itt_WT_Serving_Steal = nullptr;
 	__itt_string_handle* volatile __itt_WT_Wait_For_Work = nullptr;
-	__itt_string_handle* volatile __itt_Coalescing = nullptr;
-	__itt_string_handle* volatile __itt_Coal_In_Execution = nullptr;
 	__itt_string_handle* volatile __itt_Task_In_Execution = nullptr;
 	__itt_string_handle* volatile __itt_Task_Stealing = nullptr;
 	__itt_string_handle* volatile __itt_SPSC_Enq = nullptr;
@@ -159,56 +133,11 @@ void debug() {
 	std::cout << "__mtsp_inFlightTasks            => " << __mtsp_inFlightTasks << std::endl;
 	std::cout << "__mtsp_threadWait               => " << __mtsp_threadWait << std::endl;
 	std::cout << "__mtsp_threadWaitCounter        => " << __mtsp_threadWaitCounter<< std::endl;
-	std::cout << "__curCoalesceSize               => " << __curCoalesceSize << std::endl;
 	std::cout << "freeSlots[0]                    => " << freeSlots.cur_load() << std::endl;
 	std::cout << "submissionQueue.cur_load        => " << submissionQueue.cur_load() << std::endl;
 	std::cout << "RunQueue.cur_load               => " << RunQueue.cur_load() << std::endl;
 	std::cout << "RetirementQueue.cur_load        => " << RetirementQueue.cur_load() << std::endl;
 	std::cout << "------------------------------------------------------------------" << std::endl;
-}
-
-
-void updateAverageTaskSize(kmp_uint64 taskAddr, double size) {
-	double newMed=0, sum=0;
-
-	if (taskSize.find(taskAddr) == taskSize.end()) {
-		taskSize[taskAddr] = std::make_pair(1, size);
-	}
-	else if (taskSize[taskAddr].first < MIN_SAMPLES_AVERAGE) {
-		taskSize[taskAddr].first++;
-
-		if (taskSize[taskAddr].first == MIN_SAMPLES_AVERAGE) {
-			taskSize[taskAddr].second = size;
-		}
-	}
-	else {
-		auto oldPair = taskSize[taskAddr];
-
-		sum = oldPair.first / oldPair.second;
-				sum += 1.0 / size;
-
-		newMed = (oldPair.first + 1) / sum;
-
-		taskSize[taskAddr] = std::make_pair(oldPair.first+1, newMed);
-	}
-
-	//printf("UATS: %llx -> %lf [%lf]\n", taskAddr, size, newMed);
-}
-
-void __mtsp_reInitialize() {
-	__coalNecessary = 0;
-	__coalUnnecessary = 0;
-	__coalImpossible = 0;
-	__coalOverflowed = 0;
-	__coalSuccess = 0;
-	__coalFailed = 0;
-
-	/// The size of the tasks is reset every time we enter a new parallel region
-   	taskSize.clear();
-
-#ifdef MTSP_DUMP_STATS
-	realTasks.clear();
-#endif
 }
 
 void __mtsp_initialize() {
@@ -233,9 +162,6 @@ void __mtsp_initialize() {
 	__itt_WT_Barrier = __itt_string_handle_create("WT_Barrier");
 	__itt_WT_Serving_Steal = __itt_string_handle_create("WT_Serving_Steal");
 	__itt_WT_Wait_For_Work = __itt_string_handle_create("WT_Wait_For_Work");
-
-	__itt_Coalescing = __itt_string_handle_create("Coalescing");
-	__itt_Coal_In_Execution = __itt_string_handle_create("Coal_In_Execution");
 
 	__itt_Task_In_Execution = __itt_string_handle_create("Task_In_Execution");
 	__itt_Task_Stealing = __itt_string_handle_create("Task_Stealing");
@@ -300,187 +226,6 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
 	__itt_task_end(__itt_mtsp_domain);
 
 	__itt_task_end(__itt_mtsp_domain);
-}
-
-void __mtsp_RuntimeWorkSteal() {
-	kmp_task* taskToExecute = nullptr;
-
-	// Counter for the total cycles spent per task
-	unsigned long long start=0, end=0;
-
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
-
-	while (RunQueue.cur_load() > RunQueue.cont_load()) {
-		if (RunQueue.try_deq(&taskToExecute)) {
-			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
-
-			start = beg_read_mtsp();
-
-			// Start execution of the task
-			(*(taskToExecute->routine))(0, taskToExecute);
-
-			end = end_read_mtsp();
-
-			__itt_task_end(__itt_mtsp_domain);
-
-			taskToExecute->metadata->taskSize = (end - start);
-
-			tasksExecutedByRT++;
-
-			// Inform that this task has finished execution
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
-			RetirementQueue.enq(taskToExecute);
-			__itt_task_end(__itt_mtsp_domain);
-		}
-	}
-
-	__itt_task_end(__itt_mtsp_domain);
-}
-
-
-void saveCoalesce() {
-	// Counter for the total cycles spent per task
-	unsigned long long start=0, end=0;
-
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Coalescing);
-
-	start = beg_read_mtsp();
-
-	// Update the number of successes and failures to create a full coalesce
-	__coalSuccess += (__curCoalL <= __tgtCoalL);
-	__coalFailed += (__curCoalL > __tgtCoalL);
-
-	coalescedTask->routine = executeCoalesced;
-	coalescedTask->metadata->coalesceSize = __curCoalesceSize;
-
-	std::map<kmp_intptr, kmp_depend_info*> deps;
-
-	for (int idx=0; idx<__curCoalesceSize; idx++) {
-		kmp_task* currTask = coalescedTask->metadata->coalesced[idx];
-
-		for (int depIdx=0; depIdx<currTask->metadata->ndeps; depIdx++) {
-			kmp_depend_info* currDepInfo = &currTask->metadata->dep_list[depIdx];
-
-			// First time we see that addr or not?
-			if (deps.find(currDepInfo->base_addr) == deps.end()) {
-				deps[currDepInfo->base_addr] = currDepInfo;
-			}
-			else {
-				deps[currDepInfo->base_addr]->flags.in |= currDepInfo->flags.in;
-				deps[currDepInfo->base_addr]->flags.out |= currDepInfo->flags.out;
-			}
-		}
-
-		if (idx > 0) {
-			// Decrement the number of tasks in the system currently
-			ATOMIC_SUB(&__mtsp_inFlightTasks, 1);
-
-			freeSlots.enq( currTask->metadata->taskgraph_slot_id );
-			//freeSlots[0]++;
-			//freeSlots[ freeSlots[0] ] = currTask->metadata->taskgraph_slot_id;
-
-			if (currTask->metadata->metadata_slot_id >= 0)
-				__mtsp_taskMetadataStatus[currTask->metadata->metadata_slot_id] = false;
-		}
-	}
-
-	coalescedTask->metadata->taskgraph_slot_id = coalescedTask->metadata->coalesced[0]->metadata->taskgraph_slot_id;
-	coalescedTask->metadata->metadata_slot_id = coalescedTask->metadata->metadata_slot_id;
-	coalescedTask->metadata->ndeps = deps.size();
-	coalescedTask->metadata->dep_list = (kmp_depend_info*) malloc(sizeof(kmp_depend_info) * deps.size()); 
-
-	int realIdx = 0;
-	for (auto& realDep : deps) {
-		coalescedTask->metadata->dep_list[realIdx] = *realDep.second;
-		realIdx++;
-	}
-
-	end = end_read_mtsp();
-
-	// Does an XOR with the address of the coalesce routine and the address of the task
-	kmp_uint64 colKey = ((kmp_uint64) saveCoalesce) ^ ((kmp_uint64) coalescedTask->metadata->coalesced[0]->routine);
-
-	updateAverageTaskSize(colKey, (end - start) / __curCoalesceSize);
-
-	addToTaskGraph( coalescedTask );
-
-	__itt_task_end(__itt_mtsp_domain);
-}
-
-double howManyShouldBeCoalesced(kmp_uint64 taskAddr) {
-//	if (taskSize.find(taskAddr) == taskSize.end() || taskSize[taskAddr].first < MIN_SAMPLES_FOR_COALESCING) 
-		return 99;
-//	else
-//		return 50;
-
-//	auto rtlKey 	= ((kmp_uint64) __mtsp_RuntimeThreadCode ^ taskAddr);
-//	auto colKey 	= ((kmp_uint64) saveCoalesce ^ taskAddr);
-//
-//	double sti 		= taskSize[taskAddr].second;
-//	double m   		= __mtsp_numWorkerThreads;				/// Includes the runtime and the control
-//	double ro  		= 2 * taskSize[rtlKey].second; 			/// we double it because the stored value is average of add/del (not the sum) from TG
-//	double co  		= (taskSize.find(colKey) != taskSize.end()) ? taskSize[colKey].second : ro * 0.01;
-//
-//	if (sti >= m*(co + ro)) {
-//		#ifdef DEBUG_COAL_MODE
-//				printf("[Coalesce] No need for coalescing. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co);
-//		#endif
-//		__coalUnnecessary++;
-//		return 99;
-//	}
-//	else {
-//		double l = (sti - m*co) / (m*ro);
-//
-//		if (l < 0.4) {
-//			#ifdef DEBUG_COAL_MODE
-//				printf("[Coalesce] Impossible to amortize. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
-//			#endif
-//			__coalImpossible++;
-//			return 100;	// I am trying to not decrease parallelism here
-//		}
-//		else {
-//			#ifdef DEBUG_COAL_MODE
-//				printf("[Coalesce] Need for coalescing. [task=%llx, execs=%lld, sti=%lf, m=%lf, ro=%lf, co=%lf, l=%lf]\n", taskAddr, taskSize[taskAddr].first, sti, m, ro, co, l);
-//			#endif
-//			__coalNecessary++;
-//			return l;
-//		}
-//	}
-}
-
-inline bool hasPendingCoalesce() {
-	return (__curCoalesceSize > 0);
-}
-
-inline void restartCoalesce() {
-	__curCoalesceSize = 0;
-//	__tgtCoalL = 100;
-	__coalHowManyAddrs=0;
-
-	uniqueAddrs.clear();
-
-	coalescedTask = new kmp_task();
-	coalescedTask->metadata = new _mtsp_task_metadata();
-	coalescedTask->metadata->coalesceSize = 0;
-}
-
-
-inline void increaseCoalesce(kmp_task* task) {
-	coalescedTask->metadata->coalesced[__curCoalesceSize] = task;
-	__curCoalesceSize++;
-
-	// Need to update the __curCoalL
-	for (int depIdx=0; depIdx<task->metadata->ndeps; depIdx++) {
-		uniqueAddrs.insert(task->metadata->dep_list[depIdx].base_addr);
-	}
-	__coalHowManyAddrs += task->metadata->ndeps;
-	__curCoalL = uniqueAddrs.size() / __coalHowManyAddrs;
-
-	// Did we reach the target of the linearity factor?
-	if (__curCoalL <= __tgtCoalL || __curCoalesceSize == MAX_COALESCING_SIZE) {
-		saveCoalesce();
-		restartCoalesce();
-	}
 }
 
 void* __mtsp_RuntimeThreadCode(void* params) {

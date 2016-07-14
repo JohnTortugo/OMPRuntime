@@ -19,12 +19,6 @@
 	#define KMP_TASKDATA_TO_TASK(taskdata) 		(kmp_task *) (taskdata + 1)
 
 
-	#define MAX_COALESCING_SIZE					  20
-	#define MIN_SAMPLES_FOR_COALESCING			  10
-	#define MIN_SAMPLES_AVERAGE					   3
-
-
-
 
 	//===----------------------------------------------------------------------===//
 	//
@@ -93,8 +87,6 @@
 		// Unique taskId across the whole execution of the parallel region
 		kmp_uint32 globalTaskId;
 		kmp_uint64 taskSize;
-		kmp_uint64 coalesceSize;
-		struct _kmp_task* coalesced[MAX_COALESCING_SIZE];
 	} mtsp_task_metadata;
 
 

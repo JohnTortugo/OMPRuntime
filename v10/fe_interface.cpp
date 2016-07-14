@@ -53,9 +53,6 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 
 		__mtsp_initialize();
     }
-	else {
-		__mtsp_reInitialize();
-	}
 	RELEASE(&__mtsp_lock_initialized);
 
 
@@ -69,9 +66,8 @@ void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
 	// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
     (microtask)(&tid, &tid, argvcp[0]);
 
-    // Comment below if you assume the compiler or the programmer added a #pragma taskwait at the end of parallel region.
-      __kmpc_omp_taskwait(nullptr, 0);
-    // printf("Expecting barrier....\n");
+	// At the end of each "parallel" construct there is a barrier
+    while (__mtsp_inFlightTasks > 0);
 
     __itt_task_end(__itt_mtsp_domain);
 }
@@ -95,7 +91,6 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
     task->metadata->parentReseted = false;
     task->metadata->numDirectChild = 0;
 	task->metadata->globalTaskId = -1;
-	task->metadata->coalesceSize = 0;
     task->metadata->metadata_slot_id = -1;
 
     __itt_task_end(__itt_mtsp_domain);

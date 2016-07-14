@@ -1,6 +1,4 @@
-The differences of this version for version 0.6 are:
+The differences of this version for the latest version are:
 
-	- Task coalescing.
-	- Improved task stealing initialization/finalization heuristics.
 
 
