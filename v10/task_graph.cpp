@@ -188,7 +188,13 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 	// removes the pointer to the child task in the parent
 	if (parentTaskId >= 0 && parentTaskId != idOfFinishedTask) {
-		pcGraph[parentTaskId]->erase(finishedTask);
+		if ( pcGraph[parentTaskId]->find(finishedTask) != pcGraph[parentTaskId]->end() ) {
+			printf("Going to remove from task %d from parent %d.\n", idOfFinishedTask, parentTaskId);
+			pcGraph[parentTaskId]->erase(finishedTask);
+		}
+		else {
+			printf("Children not in parent ::: children=%p, parent=%d\n", finishedTask, parentTaskId);
+		}
 
 		// If the parent is still the original it may be the case that
 		// it is stuck in a taskwait/taskgroup waiting for its children
@@ -206,14 +212,13 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	else if (parentTaskId == idOfFinishedTask) {
 		if (pcGraph[idOfFinishedTask]->size() > 0) {
 			for (kmp_task* child : *pcGraph[idOfFinishedTask]) {
-				pcGraph[parentTaskId]->insert(child);
 				child->metadata->parentTaskId = child->metadata->taskgraph_slot_id;
 				child->metadata->parentReseted = true;
 			}
 		}
 	}
 	else {
-		__ControlThreadDirectChild--;
+		ATOMIC_SUB(&__ControlThreadDirectChild, 1);
 
 		if (pcGraph[idOfFinishedTask]->size() > 0) {
 			for (kmp_task* child : *pcGraph[idOfFinishedTask]) {
@@ -227,6 +232,7 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	dependents[idOfFinishedTask][0] = 0;
 	depCounters[idOfFinishedTask] = 0;
 	tasks[idOfFinishedTask] = nullptr;
+	pcGraph[idOfFinishedTask]->clear();
 
 
 	freeSlots.enq(idOfFinishedTask);

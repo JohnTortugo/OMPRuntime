@@ -128,11 +128,19 @@ unsigned long long end_read_mtsp() {
 void debug() {
 	std::cout << std::endl;
 	std::cout << "------------------ DEBUG ---------- DEBUG ------- DEBUG ----------" << std::endl;
-	std::cout << "__mtsp_numThreads;              => " << __mtsp_numThreads << std::endl;
-	std::cout << "__mtsp_numWorkerThreads;        => " << __mtsp_numWorkerThreads << std::endl;
+	std::cout << "__mtsp_numThreads               => " << __mtsp_numThreads << std::endl;
+	std::cout << "__mtsp_numWorkerThreads         => " << __mtsp_numWorkerThreads << std::endl;
 	std::cout << "__mtsp_inFlightTasks            => " << __mtsp_inFlightTasks << std::endl;
+	std::cout << "__ControlThreadDirectChild      => " << __ControlThreadDirectChild << std::endl;
 	std::cout << "__mtsp_threadWait               => " << __mtsp_threadWait << std::endl;
 	std::cout << "__mtsp_threadWaitCounter        => " << __mtsp_threadWaitCounter<< std::endl;
+	std::cout << "idOfCurrentTask                 => [";
+
+	for (int i=0; i<__mtsp_numThreads; i++) 
+		printf("(%02d : %02d) ", i, idOfCurrentTask[i]);
+
+	std::cout << "]" << std::endl;
+
 	std::cout << "freeSlots[0]                    => " << freeSlots.cur_load() << std::endl;
 	std::cout << "submissionQueue.cur_load        => " << submissionQueue.cur_load() << std::endl;
 	std::cout << "RunQueue.cur_load               => " << RunQueue.cur_load() << std::endl;

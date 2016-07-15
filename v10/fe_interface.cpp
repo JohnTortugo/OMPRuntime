@@ -107,7 +107,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 		pcGraph[idOfCurrentTask[gtid]]->insert(new_task);
 	}
 	else {
-		__ControlThreadDirectChild++;
+		ATOMIC_ADD(&__ControlThreadDirectChild, 1);
 	}
 
 	__mtsp_addNewTask(new_task, ndeps, dep_list);
@@ -115,56 +115,6 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	__itt_task_end(__itt_mtsp_domain);
 
 	return 0;
-}
-
-void steal_from_single_run_queue(bool just_a_bit) {
-	kmp_task* taskToExecute = nullptr;
-	kmp_uint16 myId = __mtsp_numWorkerThreads;
-
-	// Counter for the total cycles spent per task
-	unsigned long long start=0, end=0;
-
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_Stealing);
-
-	while (true) {
-		if (just_a_bit) {
-			if (RunQueue.cur_load() < RunQueue.cont_load() && submissionQueue.cur_load() < submissionQueue.cont_load()) {
-				__itt_task_end(__itt_mtsp_domain);
-				return;
-			}
-		}
-		else {
-			if (RunQueue.cur_load() < RunQueue.cont_load() && submissionQueue.cur_load() <= 0) {
-				__itt_task_end(__itt_mtsp_domain);
-				return;
-			}
-		}
-
-		if (RunQueue.try_deq(&taskToExecute)) {
-
-			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
-
-			start = beg_read_mtsp();
-
-			// Start execution of the task
-			(*(taskToExecute->routine))(0, taskToExecute);
-
-			end = end_read_mtsp();
-
-			__itt_task_end(__itt_mtsp_domain);
-
-			taskToExecute->metadata->taskSize = (end - start);
-
-			tasksExecutedByCT++;
-
-			/// Inform that this task has finished execution
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
-			RetirementQueue.enq(taskToExecute);
-			__itt_task_end(__itt_mtsp_domain);
-		}
-	}
-
-	__itt_task_end(__itt_mtsp_domain);
 }
 
 void work() {
@@ -186,7 +136,7 @@ void work() {
 }
 
 kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
-#if DEBUG_MODE
+#if 1
 	printf("Task %d (Thread %d) on taskwait.\n", idOfCurrentTask[threadId], gtid);
 #endif
 
@@ -202,7 +152,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 		}
 	}
 	
-#if DEBUG_MODE
+#if 1
 	printf("Task %d (Thread %d) exit on taskwait.\n", idOfCurrentTask[threadId], gtid);
 #endif
 

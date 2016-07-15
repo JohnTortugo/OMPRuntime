@@ -63,6 +63,7 @@ void* WorkerThreadCode(void* params) {
 	// Currently the ID of the thread is also the ID of its target core
 	kmp_uint32* tasksIdent  = (kmp_uint32*) params;
 	kmp_uint16 myId 		= *tasksIdent;
+	kmp_int16 prevTaskId	= -1;
 	char taskName[100];
 
 	threadId = myId;
@@ -75,10 +76,13 @@ void* WorkerThreadCode(void* params) {
 		if (RunQueue.try_deq(&taskToExecute)) {
 			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
 
+			prevTaskId = idOfCurrentTask[myId];
 			idOfCurrentTask[myId] = taskToExecute->metadata->taskgraph_slot_id;
 
 			// Start execution of the task
 			(*(taskToExecute->routine))(0, taskToExecute);
+
+			idOfCurrentTask[myId] = prevTaskId;
 
 			__itt_task_end(__itt_mtsp_domain);
 
