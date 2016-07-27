@@ -57,15 +57,6 @@
 	/// Represents the maximum number of tasks in the Retirement Queue
 	#define RETIREMENT_QUEUE_SIZE					4*MAX_TASKS
 
-	/// Maximum size of one taskMetadata slot. Tasks that require a metadata region
-	/// larger than this will use a memory region returned by a call to std malloc.
-	#define TASK_METADATA_MAX_SIZE  								   1024
-
-	/// Number of task metadata slots
-	#define MAX_TASKMETADATA_SLOTS 		(MAX_TASKS + SUBMISSION_QUEUE_SIZE)
-
-	#define BRIDGE_MODE				(getenv("MTSP_BRIDGE_MODE") != NULL)
-
 	/// Just global constants recognized as \c LOCKED and \c UNLOCKED
 	#define LOCKED															1
 	#define UNLOCKED														0
@@ -128,12 +119,7 @@
 	/// the global unique ID of each task in the system.
 	extern kmp_uint32 lastPrintedTaskId;
 
-	/// Memory region from where new tasks metadata will be allocated.
-	extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
-
-	/// Status of each slot in the \c __mtsp_taskMetadataBuffer
-	extern volatile bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
-
+	extern bool pcGraphLock;
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////////////

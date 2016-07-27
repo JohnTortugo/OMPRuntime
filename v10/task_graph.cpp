@@ -13,6 +13,7 @@
 #include <set>
 #include <sstream>
 #include <iomanip>
+#include <cstring>
 
 
 #include "kmp.h"
@@ -181,29 +182,35 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	// Remove from the dependence checker the positions that this task owns
 	releaseDependencies(idOfFinishedTask, finishedTask->metadata->ndeps, finishedTask->metadata->dep_list);
 
-	// Release the taskmetadata slot used
-	if (finishedTask->metadata->metadata_slot_id >= 0) {
-		__mtsp_taskMetadataStatus[finishedTask->metadata->metadata_slot_id] = false;
-	}
-
 	// removes the pointer to the child task in the parent
 	if (parentTaskId >= 0 && parentTaskId != idOfFinishedTask) {
+		ACQUIRE(&pcGraphLock);
 		if ( pcGraph[parentTaskId]->find(finishedTask) != pcGraph[parentTaskId]->end() ) {
-			printf("Going to remove from task %d from parent %d.\n", idOfFinishedTask, parentTaskId);
+			//printf("Going to remove from task %d from parent %d.\n", idOfFinishedTask, parentTaskId);
 			pcGraph[parentTaskId]->erase(finishedTask);
 		}
 		else {
-			printf("Children not in parent ::: children=%p, parent=%d\n", finishedTask, parentTaskId);
+			printf("Child not in parent ::: [child=%d, parent=%d, parentReseted=%d\n", idOfFinishedTask, parentTaskId, finishedTask->metadata->parentReseted);
+			printf("\tThese are the children: {%02d} {DC=%02d} [", pcGraph[parentTaskId]->size(), tasks[parentTaskId]->metadata->numDirectChild);
+
+			for (kmp_task* child : *pcGraph[parentTaskId]) {
+				printf("(%04d : %04d) ", child->metadata->taskgraph_slot_id, child->metadata->parentTaskId);
+			}
+
+			printf("]\n");
 		}
+		RELEASE(&pcGraphLock);
 
 		// If the parent is still the original it may be the case that
 		// it is stuck in a taskwait/taskgroup waiting for its children
 		if (!finishedTask->metadata->parentReseted && tasks[parentTaskId])
-			tasks[parentTaskId]->metadata->numDirectChild--;
+			ATOMIC_SUB(&tasks[parentTaskId]->metadata->numDirectChild, 1);
 
 		if (pcGraph[idOfFinishedTask]->size() > 0) {
 			for (kmp_task* child : *pcGraph[idOfFinishedTask]) {
+				ACQUIRE(&pcGraphLock);
 				pcGraph[parentTaskId]->insert(child);
+				RELEASE(&pcGraphLock);
 				child->metadata->parentTaskId = parentTaskId;
 				child->metadata->parentReseted = true;
 			}
@@ -228,11 +235,16 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 		}
 	}
 
-	// This slot is empty
+	// release malloc-ed memory
+	free(finishedTask->metadata->dep_list);
+	free( KMP_TASK_TO_TASKDATA(tasks[idOfFinishedTask]) );
+
+	// reinitialize data structures
 	dependents[idOfFinishedTask][0] = 0;
 	depCounters[idOfFinishedTask] = 0;
-	tasks[idOfFinishedTask] = nullptr;
+	ACQUIRE(&pcGraphLock);
 	pcGraph[idOfFinishedTask]->clear();
+	RELEASE(&pcGraphLock);
 
 
 	freeSlots.enq(idOfFinishedTask);

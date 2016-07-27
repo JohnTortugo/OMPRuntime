@@ -82,7 +82,9 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 
     kmp_task* task = KMP_TASKDATA_TO_TASK(taskdata);
 
-	//printf("Task [%d] (Thread %d) is submitting a new child task.\n", idOfCurrentTask[threadId], threadId);
+#if DEBUG_MODE
+	printf("Task [%d] (Thread %d) is submitting a new child task.\n", idOfCurrentTask[threadId], threadId);
+#endif
 
     task->shareds  = (sizeof_shareds > 0) ? &((char *) taskdata)[shareds_offset] : NULL;
     task->routine  = task_entry;
@@ -91,7 +93,6 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
     task->metadata->parentReseted = false;
     task->metadata->numDirectChild = 0;
 	task->metadata->globalTaskId = -1;
-    task->metadata->metadata_slot_id = -1;
 
     __itt_task_end(__itt_mtsp_domain);
     return task;
@@ -103,8 +104,10 @@ kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_ta
 	// stores a pointer to the child task in the parent task.
 	// If the current task is < 0 then the current executing code is the control thread
 	if (idOfCurrentTask[gtid] >= 0) {
-		tasks[idOfCurrentTask[gtid] ]->metadata->numDirectChild++;
+		ATOMIC_ADD(&tasks[idOfCurrentTask[gtid] ]->metadata->numDirectChild, 1);
+		ACQUIRE(&pcGraphLock);
 		pcGraph[idOfCurrentTask[gtid]]->insert(new_task);
+		RELEASE(&pcGraphLock);
 	}
 	else {
 		ATOMIC_ADD(&__ControlThreadDirectChild, 1);
@@ -136,7 +139,7 @@ void work() {
 }
 
 kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
-#if 1
+#if DEBUG_MODE
 	printf("Task %d (Thread %d) on taskwait.\n", idOfCurrentTask[threadId], gtid);
 #endif
 
@@ -152,8 +155,8 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 		}
 	}
 	
-#if 1
-	printf("Task %d (Thread %d) exit on taskwait.\n", idOfCurrentTask[threadId], gtid);
+#if DEBUG_MODE
+	printf("Task %d (Thread %d) exiting taskwait.\n", idOfCurrentTask[threadId], gtid);
 #endif
 
 	return 0;

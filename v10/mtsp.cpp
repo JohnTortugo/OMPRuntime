@@ -34,15 +34,9 @@ kmp_uint32 						__mtsp_globalTaskCounter = 0;
 unsigned char volatile __mtsp_lock_initialized 	 = 0;
 unsigned char volatile __mtsp_lock_newTasksQueue = 0;
 
+bool pcGraphLock = 0;
 
 MPMCQueue<kmp_uint16, MAX_TASKS*2, 4> freeSlots;
-
-/// Variables/constants related to the the taskMetadata buffer
-bool volatile __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
-char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
-
-
-
 
 //===-------- VTune/libittnotify related stuff ----------===//
 	__itt_domain* 		volatile __itt_mtsp_domain = nullptr;
@@ -183,13 +177,6 @@ void __mtsp_initialize() {
 	__itt_RT_Check_Add = __itt_string_handle_create("RT_Check_Add");
 	__itt_RT_Check_Oth = __itt_string_handle_create("RT_Check_Oth");
 
-
-
-	//===-------- This slot is free for use by any thread ----------===//
-	for (int i=0; i<MAX_TASKMETADATA_SLOTS; i++) {
-		__mtsp_taskMetadataStatus[i] = false;
-	}
-
 	//===-------- Initialize the task graph manager ----------===//
 	__mtsp_initializeTaskGraph();
 
@@ -202,14 +189,6 @@ void __mtsp_initialize() {
 
 void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
 	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Submission_Queue_Enqueue);
-
-#ifdef MTSP_WORKSTEALING_CT
-	// The CT is trying to submit work but the queue is full. The CT will then
-	// spend some time executing tasks
-	if (submissionQueue.cur_load() >= submissionQueue.cont_load()) {
-		steal_from_single_run_queue(true);
-	}
-#endif
 
 	// Increment the number of tasks in the system currently
 	ATOMIC_ADD(&__mtsp_inFlightTasks, (kmp_int32)1);

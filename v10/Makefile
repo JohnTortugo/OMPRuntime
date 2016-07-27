@@ -35,8 +35,10 @@ clean:
 run: mtsp
 
 rebuild-run:
+	@clear
 	@make clean
 	@make mtsp
-	
+
+
 %.o: %.cpp
 	$(CC) -c $(CFLAGS) $(OPT_LVL) $< -o $@
