@@ -6,7 +6,7 @@ std::map<kmp_intptr, std::pair<kmp_int32, std::vector<kmp_uint32>>> dependenceTa
 
 
 void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depend_info* depList) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dependences);
+//	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dependences);
 
 	/// Iterate over each dependence and check if the task ID of the last task accessing that address
 	/// is the ID of the finished task. If it is remove that entry, otherwise do nothing.
@@ -27,7 +27,7 @@ void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depe
 				}
 			}
 			else {
-				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dep_Reader);
+//				__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Releasing_Dep_Reader);
 
 				for (int idxPos=0; idxPos<hashValue.second.size(); idxPos++) {
 					if (hashValue.second[idxPos] == idOfFinishedTask) {
@@ -36,7 +36,7 @@ void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depe
 					}
 				}
 
-				__itt_task_end(__itt_mtsp_domain);
+//				__itt_task_end(__itt_mtsp_domain);
 			}
 
 			/// If that address does not have more producers/writers we remove it from the hash
@@ -48,11 +48,11 @@ void releaseDependencies(kmp_uint16 idOfFinishedTask, kmp_uint32 ndeps, kmp_depe
 		}
 	}
 
-	__itt_task_end(__itt_mtsp_domain);
+//	__itt_task_end(__itt_mtsp_domain);
 }
 
 kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, kmp_depend_info* depList) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Checking_Dependences);
+//	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Checking_Dependences);
 
 	kmp_uint64 depCounter = 0;
 
@@ -167,6 +167,6 @@ kmp_uint64 checkAndUpdateDependencies(kmp_uint16 newTaskId, kmp_uint32 ndeps, km
 		dependenceTable[baseAddr] = hashValue;
 	}
 
-	__itt_task_end(__itt_mtsp_domain);
+//	__itt_task_end(__itt_mtsp_domain);
 	return depCounter;
 }

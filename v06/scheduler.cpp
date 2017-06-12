@@ -2,9 +2,11 @@
 #include "mtsp.h"
 #include "scheduler.h"
 #include "task_graph.h"
+#include "benchmarking.hpp"
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
 
 pthread_t* 		volatile workerThreads 				= nullptr;
 kmp_uint32* 	volatile workerThreadsIds			= nullptr;
@@ -31,7 +33,7 @@ void* workerThreadCode(void* params) {
 
 	/// The thread that initialize the runtime is the Control Thread
 	sprintf(taskName, "WorkerThread-%02d", myId);
-	__itt_thread_set_name(taskName);
+//	__itt_thread_set_name(taskName);
 
 	/// Stick this thread to execute on the "Core X"
 	stick_this_thread_to_core(taskName, *tasksIdent);
@@ -40,7 +42,7 @@ void* workerThreadCode(void* params) {
 	kmp_uint64 tasksExecuted = 0;
 
 	/// Counter for the total cycles spent per task
-	unsigned long long start=0, end=0;
+	kmp_uint64 start=0, end=0;
 
 	while (true) {
 #ifdef TG_DUMP_MODE
@@ -48,7 +50,7 @@ void* workerThreadCode(void* params) {
 #endif
 
 		if (RunQueue.try_deq(&taskToExecute)) {
-			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+//			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
 
 #ifdef MEASURE_TASK_SIZE
 			start = beg_read_mtsp();
@@ -61,25 +63,26 @@ void* workerThreadCode(void* params) {
 			end = end_read_mtsp();
 #endif
 
-			__itt_task_end(__itt_mtsp_domain);
+//			__itt_task_end(__itt_mtsp_domain);
 
 			tasksExecuted++;
 
 #ifdef MEASURE_TASK_SIZE
 			taskToExecute->metadata->taskSize = (end - start);
+			std::cout << taskToExecute->metadata->taskSize << std::endl;
 #endif
 
 			/// Inform that this task has finished execution
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
+//			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 			RetirementQueue.enq(taskToExecute);
-			__itt_task_end(__itt_mtsp_domain);
+//			__itt_task_end(__itt_mtsp_domain);
 		}
 		else {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Wait_For_Work);
+//			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Wait_For_Work);
 			/// has a barrier been activated?
 			if (__mtsp_threadWait == true) {
 				if (__mtsp_inFlightTasks == 0) {
-					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Barrier);
+//					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Barrier);
 
 					ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
 
@@ -93,10 +96,10 @@ void* workerThreadCode(void* params) {
 					/// Says that the current thread have visualized the previous update to threadWait
 					ATOMIC_SUB(&__mtsp_threadWaitCounter, 1);
 
-					__itt_task_end(__itt_mtsp_domain);
+//					__itt_task_end(__itt_mtsp_domain);
 				}
 			}
-			__itt_task_end(__itt_mtsp_domain);
+//			__itt_task_end(__itt_mtsp_domain);
 		}
 	}
 
