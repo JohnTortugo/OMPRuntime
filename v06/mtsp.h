@@ -97,7 +97,7 @@
   extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
 #ifdef MEASURE_TASK_SIZE
-  extern std::vector<unsigned long long> taskSizes;
+  extern std::vector<mtsp_task_metadata> taskMetadata;
 #endif
 
 

@@ -171,7 +171,7 @@ void steal_from_single_run_queue(bool just_a_bit) {
 //			__itt_task_end(__itt_mtsp_domain);
 
 #ifdef MEASURE_TASK_SIZE
-			taskToExecute->metadata->taskSize = (end - start);
+			taskToExecute->metadata->cycles_execution = (end - start);
 #endif
 
 			tasksExecutedByCT++;
@@ -230,7 +230,7 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 
 #ifdef MEASURE_TASK_SIZE
 	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
-		printf("%d %llu\n", lastPrintedTaskId, taskSizes[lastPrintedTaskId]);
+		printf("%d %llu\n", lastPrintedTaskId, taskMetadata[lastPrintedTaskId]);
 	}
 #endif
 
@@ -293,7 +293,7 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 
 #ifdef MEASURE_TASK_SIZE
 	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
-		printf("%d %llu\n", lastPrintedTaskId, taskSizes[lastPrintedTaskId]);
+		printf("%d %llu\n", lastPrintedTaskId, taskMetadata[lastPrintedTaskId].cycles_execution);
 	}
 #endif
 

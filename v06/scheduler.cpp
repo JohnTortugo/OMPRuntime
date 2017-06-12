@@ -68,13 +68,19 @@ void* workerThreadCode(void* params) {
 			tasksExecuted++;
 
 #ifdef MEASURE_TASK_SIZE
-			taskToExecute->metadata->taskSize = (end - start);
-			std::cout << taskToExecute->metadata->taskSize << std::endl;
+			taskToExecute->metadata->cycles_execution = (end - start);
 #endif
 
 			/// Inform that this task has finished execution
 //			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
+#ifdef MEASURE_RETIREMENT
+			start = beg_read_mtsp();
+#endif
 			RetirementQueue.enq(taskToExecute);
+#ifdef MEASURE_RETIREMENT
+			end = end_read_mtsp();
+			taskToExecute->metadata->cycles_retirement = (end - start);
+#endif
 //			__itt_task_end(__itt_mtsp_domain);
 		}
 		else {

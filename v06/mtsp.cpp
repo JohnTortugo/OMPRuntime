@@ -29,7 +29,7 @@ bool volatile __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
 char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
 
 #ifdef MEASURE_TASK_SIZE
-	std::vector<unsigned long long> taskSizes(MAXIMUM_EXPECTED_TASKS);
+	std::vector<mtsp_task_metadata> taskMetadata(MAXIMUM_EXPECTED_TASKS);
 	kmp_uint32 lastPrintedTaskId = 0;
 #endif
 
@@ -224,7 +224,7 @@ void __mtsp_RuntimeWorkSteal() {
 //			__itt_task_end(__itt_mtsp_domain);
 
 #ifdef MEASURE_TASK_SIZE
-			taskToExecute->metadata->taskSize = (end - start);
+			taskToExecute->metadata->cycles_execution = (end - start);
 #endif
 
 			tasksExecutedByRT++;
@@ -266,7 +266,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 				printf("Critical: Maximum_expected_tasks reached at %s:%d\n", __FILE__, __LINE__);
 				exit(-1);
 			}
-			taskSizes[task->metadata->globalTaskId] = task->metadata->taskSize;
+			taskMetadata[task->metadata->globalTaskId].cycles_execution = task->metadata->cycles_execution;
 #endif
 		}
 //		__itt_task_end(__itt_mtsp_domain);
