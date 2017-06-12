@@ -231,7 +231,14 @@ void __mtsp_RuntimeWorkSteal() {
 
 			/// Inform that this task has finished execution
 //			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
+#ifdef MEASURE_RETIREMENT
+			start = beg_read_mtsp();
+#endif
 			RetirementQueue.enq(taskToExecute);
+#ifdef MEASURE_RETIREMENT
+			end = end_read_mtsp();
+			taskToExecute->metadata->cycles_retirement = (end - start);
+#endif
 //			__itt_task_end(__itt_mtsp_domain);
 		}
 	}
@@ -267,6 +274,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
 				exit(-1);
 			}
 			taskMetadata[task->metadata->globalTaskId].cycles_execution = task->metadata->cycles_execution;
+			taskMetadata[task->metadata->globalTaskId].cycles_retirement = task->metadata->cycles_retirement;
 #endif
 		}
 //		__itt_task_end(__itt_mtsp_domain);

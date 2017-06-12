@@ -21,6 +21,7 @@
   /// A vector of MAXIMUM_EXPECTED_TASKS will be created for storing the size of
   /// each task.
   #define MEASURE_TASK_SIZE           1
+  #define MEASURE_RETIREMENT          1
   #define MAXIMUM_EXPECTED_TASKS      500000
 
   /// This is used to tell the "fe_interface.cpp" to dump the sequence of task types

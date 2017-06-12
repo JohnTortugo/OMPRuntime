@@ -293,7 +293,7 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 
 #ifdef MEASURE_TASK_SIZE
 	for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
-		printf("%d %llu\n", lastPrintedTaskId, taskMetadata[lastPrintedTaskId].cycles_execution);
+		printf("%d %llu %llu\n", lastPrintedTaskId, taskMetadata[lastPrintedTaskId].cycles_execution, taskMetadata[lastPrintedTaskId].cycles_retirement);
 	}
 #endif
 

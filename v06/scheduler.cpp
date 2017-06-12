@@ -74,7 +74,7 @@ void* workerThreadCode(void* params) {
 			/// Inform that this task has finished execution
 //			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 #ifdef MEASURE_RETIREMENT
-			start = beg_read_mtsp();
+      start = beg_read_mtsp();
 #endif
 			RetirementQueue.enq(taskToExecute);
 #ifdef MEASURE_RETIREMENT
