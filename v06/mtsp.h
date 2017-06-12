@@ -22,7 +22,8 @@
   /// each task.
   #define MEASURE_TASK_SIZE           1
   #define MEASURE_RETIREMENT          1
-  #define MAXIMUM_EXPECTED_TASKS      500000
+  #define MEASURE_ADDITION            1
+  #define MAXIMUM_EXPECTED_TASKS      2000000
 
   /// This is used to tell the "fe_interface.cpp" to dump the sequence of task types
   ///  that were entered in the submission queue
@@ -94,8 +95,8 @@
   #define MAX_TASKMETADATA_SLOTS    (MAX_TASKS + SUBMISSION_QUEUE_SIZE)
 
   /// Memory region from where new tasks metadata will be allocated.
-  extern volatile bool __mtsp_taskMetadataStatus[MAX_TASKMETADATA_SLOTS];
-  extern char __mtsp_taskMetadataBuffer[MAX_TASKMETADATA_SLOTS][TASK_METADATA_MAX_SIZE];
+  extern volatile bool * __mtsp_taskMetadataStatus;
+  extern char ** __mtsp_taskMetadataBuffer;
 
 #ifdef MEASURE_TASK_SIZE
   extern std::vector<mtsp_task_metadata> taskMetadata;

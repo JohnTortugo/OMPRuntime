@@ -78,6 +78,7 @@
 		kmp_uint32 globalTaskId;
 		kmp_uint64 cycles_execution;
     kmp_uint64 cycles_retirement;
+    kmp_uint64 cycles_addition;
 	} mtsp_task_metadata;
 
 
