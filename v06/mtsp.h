@@ -24,6 +24,7 @@
   #define MEASURE_RETIREMENT          1
   #define MEASURE_ADDITION            1
   #define MEASURE_ALLOCATION          1
+  #define MEASURE_RUNQ_DEQUEUE        1
   #define INSPECT_MICROTASK           1
   #define DUMP_CYCLE_STATS            1
   #define MAXIMUM_EXPECTED_TASKS      2000000
