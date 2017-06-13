@@ -277,6 +277,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
       taskMetadata[metadata_of_retiring_task.globalTaskId].cycles_execution = metadata_of_retiring_task.cycles_execution;
       taskMetadata[metadata_of_retiring_task.globalTaskId].cycles_retirement = metadata_of_retiring_task.cycles_retirement;
       taskMetadata[metadata_of_retiring_task.globalTaskId].cycles_addition = metadata_of_retiring_task.cycles_addition;
+      taskMetadata[metadata_of_retiring_task.globalTaskId].cycles_allocation = metadata_of_retiring_task.cycles_allocation;
 #endif
     }
 

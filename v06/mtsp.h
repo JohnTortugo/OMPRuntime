@@ -23,6 +23,9 @@
   #define MEASURE_TASK_SIZE           1
   #define MEASURE_RETIREMENT          1
   #define MEASURE_ADDITION            1
+  #define MEASURE_ALLOCATION          1
+  #define INSPECT_MICROTASK           1
+  #define DUMP_CYCLE_STATS            1
   #define MAXIMUM_EXPECTED_TASKS      2000000
 
   /// This is used to tell the "fe_interface.cpp" to dump the sequence of task types

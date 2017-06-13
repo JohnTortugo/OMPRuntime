@@ -79,6 +79,7 @@
 		kmp_uint64 cycles_execution;
     kmp_uint64 cycles_retirement;
     kmp_uint64 cycles_addition;
+    kmp_uint64 cycles_allocation;
 	} mtsp_task_metadata;
 
 
