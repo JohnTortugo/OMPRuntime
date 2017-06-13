@@ -20,7 +20,7 @@ CFLAGS		= -g3 -std=c++11 -fpic $(SERRORS) -I$(ITT_INC)
 OPT_LVL		= 
 
 mtsp: $(OBJS) CLANG_COMPLETE
-	g++ $(CFLAGS) $(OBJS) $(ITT_LIB) -shared -ldl -o $(LIB_NAME)
+	g++ $(CFLAGS) $(OBJS) -shared -ldl -o $(LIB_NAME)
 
 install: $(LIB_NAME)
 	sudo cp $(LIB_NAME) /usr/lib/libmtsp.so

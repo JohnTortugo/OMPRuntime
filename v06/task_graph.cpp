@@ -132,7 +132,7 @@ void __mtsp_initializeTaskGraph() {
 
 
 void removeFromTaskGraph(kmp_task* finishedTask) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
+//	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Del);
 
 	kmp_uint16 idOfFinishedTask = finishedTask->metadata->taskgraph_slot_id;
 
@@ -153,9 +153,9 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 
 
 		if (depCounters[depId] == 0) {
-			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
+//			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
 			RunQueue.enq( tasks[depId] );
-			__itt_task_end(__itt_mtsp_domain);
+//			__itt_task_end(__itt_mtsp_domain);
 		}
 	}
 
@@ -176,13 +176,13 @@ void removeFromTaskGraph(kmp_task* finishedTask) {
 	freeSlots[0]++;
 	freeSlots[freeSlots[0]] = idOfFinishedTask;
 
-	__itt_task_end(__itt_mtsp_domain);
+//	__itt_task_end(__itt_mtsp_domain);
 }
 
 
 
 void addToTaskGraph(kmp_task* newTask) {
-	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Add);
+//	__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_TaskGraph_Add);
 
 	kmp_uint32 ndeps = newTask->metadata->ndeps;
 	kmp_depend_info* depList = newTask->metadata->dep_list;
@@ -206,12 +206,12 @@ void addToTaskGraph(kmp_task* newTask) {
 
 	/// if the task has depPattern == 0 then it may already be dispatched.
 	if (depCounter == 0) {
-		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
+//		__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Run_Queue_Enqueue);
 		RunQueue.enq( newTask );
-		__itt_task_end(__itt_mtsp_domain);
+//		__itt_task_end(__itt_mtsp_domain);
 	}
 
-	__itt_task_end(__itt_mtsp_domain);
+//	__itt_task_end(__itt_mtsp_domain);
 }
 
 
