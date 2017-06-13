@@ -33,7 +33,6 @@ void* workerThreadCode(void* params) {
 
 	/// The thread that initialize the runtime is the Control Thread
 	sprintf(taskName, "WorkerThread-%02d", myId);
-//	__itt_thread_set_name(taskName);
 
 	/// Stick this thread to execute on the "Core X"
 	stick_this_thread_to_core(taskName, *tasksIdent);
@@ -49,8 +48,16 @@ void* workerThreadCode(void* params) {
 		while (!__mtsp_activate_workers);
 #endif
 
+#ifdef MEASURE_RUNQ_DEQUEUE
+			kmp_uint64 start_queue = beg_read_mtsp();
+#endif
+
 		if (RunQueue.try_deq(&taskToExecute)) {
-//			 __itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Task_In_Execution);
+
+#ifdef MEASURE_RUNQ_DEQUEUE
+			kmp_uint64 end_queue = end_read_mtsp();
+      taskToExecute->metadata->cycles_runq_deq = end_queue - start_queue;
+#endif
 
 #ifdef MEASURE_TASK_SIZE
 			start = beg_read_mtsp();
@@ -63,7 +70,6 @@ void* workerThreadCode(void* params) {
 			end = end_read_mtsp();
 #endif
 
-//			__itt_task_end(__itt_mtsp_domain);
 
 			tasksExecuted++;
 
@@ -72,7 +78,6 @@ void* workerThreadCode(void* params) {
 #endif
 
 			/// Inform that this task has finished execution
-//			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_Retirement_Queue_Enqueue);
 #ifdef MEASURE_RETIREMENT
       start = beg_read_mtsp();
 #endif
@@ -81,14 +86,11 @@ void* workerThreadCode(void* params) {
 			end = end_read_mtsp();
 			taskToExecute->metadata->cycles_retirement = (end - start);
 #endif
-//			__itt_task_end(__itt_mtsp_domain);
 		}
 		else {
-//			__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Wait_For_Work);
 			/// has a barrier been activated?
 			if (__mtsp_threadWait == true) {
 				if (__mtsp_inFlightTasks == 0) {
-//					__itt_task_begin(__itt_mtsp_domain, __itt_null, __itt_null, __itt_WT_Barrier);
 
 					ATOMIC_ADD(&__mtsp_threadWaitCounter, 1);
 
@@ -102,10 +104,8 @@ void* workerThreadCode(void* params) {
 					/// Says that the current thread have visualized the previous update to threadWait
 					ATOMIC_SUB(&__mtsp_threadWaitCounter, 1);
 
-//					__itt_task_end(__itt_mtsp_domain);
 				}
 			}
-//			__itt_task_end(__itt_mtsp_domain);
 		}
 	}
 

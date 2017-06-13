@@ -236,14 +236,15 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
 
 #ifdef DUMP_CYCLE_STATS
   for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
-        kmp_uint64 ex_cycles, ret_cycles, add_cycles, alloc_cycles, total_cycles;
+        kmp_uint64 ex_cycles, ret_cycles, add_cycles, alloc_cycles, total_cycles, runq_dequeue_cycles;
         ex_cycles = taskMetadata[lastPrintedTaskId].cycles_execution;
         ret_cycles = taskMetadata[lastPrintedTaskId].cycles_retirement;
         add_cycles = taskMetadata[lastPrintedTaskId].cycles_addition;
         alloc_cycles = taskMetadata[lastPrintedTaskId].cycles_allocation;
-        total_cycles = ex_cycles + ret_cycles + add_cycles + alloc_cycles;
+        runq_dequeue_cycles = taskMetadata[lastPrintedTaskId].cycles_runq_deq;
+        total_cycles = ex_cycles + ret_cycles + add_cycles + alloc_cycles + runq_dequeue_cycles;
 
-    printf("(taskID, ExCy, RetCy, AddCy, AllCy) = (%7d, %7llu (%5.1f\%), %7llu (%5.1f\%), %7llu (%5.1f\%), %7llu (%5.1f\%))\n",
+    printf("(taskID, ExCy, RetCy, AddCy, AllCy, RQDeqCy) = (%7d, %7llu (%5.1f\%), %7llu (%5.1f\%), %7llu (%5.1f\%), %7llu (%5.1f\%)), %7llu (%5.1f\%)\n",
         lastPrintedTaskId, 
         ex_cycles,
         100 * ex_cycles / ((float) total_cycles),
@@ -252,7 +253,9 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
         add_cycles,
         100 * add_cycles / ((float) total_cycles),
         alloc_cycles,
-        100 * alloc_cycles / ((float) total_cycles)
+        100 * alloc_cycles / ((float) total_cycles),
+        runq_dequeue_cycles,
+        100 * runq_dequeue_cycles / ((float) total_cycles)
     );
   }
 #endif
@@ -314,14 +317,15 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
 
 #ifdef DUMP_CYCLE_STATS
   for (; lastPrintedTaskId<__mtsp_globalTaskCounter; lastPrintedTaskId++) {
-        kmp_uint64 ex_cycles, ret_cycles, add_cycles, alloc_cycles, total_cycles;
+        kmp_uint64 ex_cycles, ret_cycles, add_cycles, alloc_cycles, total_cycles, runq_dequeue_cycles;
         ex_cycles = taskMetadata[lastPrintedTaskId].cycles_execution;
         ret_cycles = taskMetadata[lastPrintedTaskId].cycles_retirement;
         add_cycles = taskMetadata[lastPrintedTaskId].cycles_addition;
         alloc_cycles = taskMetadata[lastPrintedTaskId].cycles_allocation;
-        total_cycles = ex_cycles + ret_cycles + add_cycles + alloc_cycles;
+        runq_dequeue_cycles = taskMetadata[lastPrintedTaskId].cycles_runq_deq;
+        total_cycles = ex_cycles + ret_cycles + add_cycles + alloc_cycles + runq_dequeue_cycles;
 
-    printf("(taskID, ExCy, RetCy, AddCy, AllCy) = (%7d, %7llu (%5.1f\%), %7llu (%5.1f\%), %7llu (%5.1f\%), %7llu (%5.1f\%))\n",
+    printf("(taskID, ExCy, RetCy, AddCy, AllCy, RQDeqCy) = (%7d, %7llu (%5.1f\%), %7llu (%5.1f\%), %7llu (%5.1f\%), %7llu (%5.1f\%)), %7llu (%5.1f\%)\n",
         lastPrintedTaskId, 
         ex_cycles,
         100 * ex_cycles / ((float) total_cycles),
@@ -330,7 +334,9 @@ void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
         add_cycles,
         100 * add_cycles / ((float) total_cycles),
         alloc_cycles,
-        100 * alloc_cycles / ((float) total_cycles)
+        100 * alloc_cycles / ((float) total_cycles),
+        runq_dequeue_cycles,
+        100 * runq_dequeue_cycles / ((float) total_cycles)
     );
   }
 #endif

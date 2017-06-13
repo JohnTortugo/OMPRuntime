@@ -190,6 +190,7 @@ void* __mtsp_RuntimeThreadCode(void* params) {
       taskMetadata[retiring_task_id].cycles_execution = task->metadata->cycles_execution;
       taskMetadata[retiring_task_id].cycles_addition = task->metadata->cycles_addition;
       taskMetadata[retiring_task_id].cycles_allocation = task->metadata->cycles_allocation;
+      taskMetadata[retiring_task_id].cycles_runq_deq = task->metadata->cycles_runq_deq;
 #endif
       removeFromTaskGraph(task);
 
