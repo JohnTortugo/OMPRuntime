@@ -70,9 +70,6 @@ void* workerThreadCode(void* params) {
 			end = end_read_mtsp();
 #endif
 
-
-			tasksExecuted++;
-
 #ifdef MEASURE_TASK_SIZE
 			taskToExecute->metadata->cycles_execution = (end - start);
 #endif
@@ -81,6 +78,8 @@ void* workerThreadCode(void* params) {
 #ifdef MEASURE_RETIREMENT
       start = beg_read_mtsp();
 #endif
+			tasksExecuted++;
+      
 			RetirementQueue.enq(taskToExecute);
 #ifdef MEASURE_RETIREMENT
 			end = end_read_mtsp();
