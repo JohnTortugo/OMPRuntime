@@ -129,6 +129,7 @@ kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid);
 void __kmpc_end_master(ident* loc, kmp_int32 gtid);
 
 extern "C" {
+    void __kmpc_barrier(ident* loc, kmp_int32 gtid);
 	int omp_get_num_threads();
 }
 

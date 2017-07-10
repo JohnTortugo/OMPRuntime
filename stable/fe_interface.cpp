@@ -96,6 +96,12 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
   return 0;
 }
 
+void __kmpc_barrier(ident* loc, kmp_int32 gtid) {
+#ifdef DEBUG_MODE
+	printf("***************** Executando uma barreira.\n");
+#endif
+}
+
 kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
   //printf("__kmpc_cancel_barrier %s:%d\n", __FILE__, __LINE__);
     return 0;
