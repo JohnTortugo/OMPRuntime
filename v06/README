@@ -1,8 +1,0 @@
-The differences of this version for version 0.4 and 0.5 are:
-
-	- The task graph may be arbitrarily large.
-	- The runtime steal tasks.
-	
-	This is (will) not (be) implemented because it is only useful when we have multiple run queues and it seems
-	to me right now that we don't need to have multiple run queues.
-		- The runtime and the control thread uses an improved work stealing approach.
