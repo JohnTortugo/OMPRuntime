@@ -86,8 +86,6 @@ void __mtsp_addNewTask(kmp_task* newTask, kmp_uint32 ndeps, kmp_depend_info* dep
     submissionQueue.enq(newTask);
 }
 
-
-
 void* __mtsp_RuntimeThreadCode(void* params) {
     kmp_task* task = nullptr;
 

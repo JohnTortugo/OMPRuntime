@@ -50,4 +50,6 @@
 	void addToTaskGraph(kmp_task*);
 
 	void removeFromTaskGraph(kmp_task*);
+
+	void dumpTaskGraphToDot();
 #endif

@@ -16,37 +16,38 @@
 SPSCQueue<kmp_task*, SUBMISSION_QUEUE_SIZE, SUBMISSION_QUEUE_BATCH_SIZE, SUBMISSION_QUEUE_CF> submissionQueue;
 
 void __kmpc_fork_call(ident *loc, kmp_int32 argc, kmpc_micro microtask, ...) {
-  int i       = 0;
-  int tid     = 0;
-    void** argv   = (void **) malloc(sizeof(void *) * argc);
+    int i       = 0, tid = 0;
+    void** argv     = (void **) malloc(sizeof(void *) * argc);
     void** argvcp   = argv;
     va_list ap;
+
+    __mtsp__BlockWorkers = true;
 
     /// Check whether the runtime library is initialized
     ACQUIRE(&__mtsp_lock_initialized);
     if (__mtsp_initialized == false) {
-      /// Init random number generator. We use this on the work stealing part.
-      srandom( time(NULL) );
+        /// Init random number generator. We use this on the work stealing part.
+        srandom( time(NULL) );
 
-      __mtsp_initialized = true;
-      __mtsp_Single = false;
+        __mtsp_initialized = true;
+        __mtsp_Single = false;
 
-      //===-------- The thread that initialize the runtime is the Control Thread ----------===//
-      __mtsp_initialize();
+        /// The thread that initialize the runtime is the Control Thread
+        __mtsp_initialize();
     }
-  RELEASE(&__mtsp_lock_initialized);
+    RELEASE(&__mtsp_lock_initialized);
 
-    /// Capture the parameters and add them to a void* array
+    /// Capture the parameters and add them to a void* array, this is a boilerplate
+    /// code to handle var args in C++
     va_start(ap, microtask);
     for(i=0; i < argc; i++) { *argv++ = va_arg(ap, void *); }
     va_end(ap);
 
-  /// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
+    /// This is "global_tid", "local_tid" and "pointer to array of captured parameters"
     (microtask)(&tid, &tid, argvcp[0]);
 
     //printf("Assuming the compiler or the programmer added a #pragma taskwait at the end of parallel for.\n");
     __kmpc_omp_taskwait(nullptr, 0);
-
 }
 
 kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, kmp_uint32 sizeof_kmp_task_t, kmp_uint32 sizeof_shareds, kmp_routine_entry task_entry) {
@@ -69,7 +70,6 @@ kmp_task* __kmpc_omp_task_alloc(ident *loc, kmp_int32 gtid, kmp_int32 pflags, km
 
 kmp_int32 __kmpc_omp_task_with_deps(ident* loc, kmp_int32 gtid, kmp_task* new_task, kmp_int32 ndeps, kmp_depend_info* dep_list, kmp_int32 ndeps_noalias, kmp_depend_info* noalias_dep_list) {
   __mtsp_addNewTask(new_task, ndeps, dep_list);
-
   return 0;
 }
 
@@ -77,23 +77,27 @@ kmp_int32 __kmpc_omp_taskwait(ident* loc, kmp_int32 gtid) {
     /// Flush the current state of the submission queues..
     submissionQueue.fsh();
 
-  /// Reset the number of threads that have currently reached the barrier
-  ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
+    dumpTaskGraphToDot();
 
-  /// Tell threads that they should synchronize at a barrier
-  ATOMIC_OR(&__mtsp_threadWait, 1);
+    __mtsp__BlockWorkers = false;
 
-  /// Wait until all threads have reached the barrier
-  while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads);
+    /// Reset the number of threads that have currently reached the barrier
+    ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
 
-  /// OK. Now all threads have reached the barrier. We now free then to continue execution
-  ATOMIC_AND(&__mtsp_threadWait, 0);
+    /// Tell threads that they should synchronize at a barrier
+    ATOMIC_OR(&__mtsp_threadWait, 1);
 
-  /// Before we continue we need to make sure that all threads have "seen" the previous
-  /// updated value of threadWait
-  while (__mtsp_threadWaitCounter != 0);
+    /// Wait until all threads have reached the barrier
+    while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads);
 
-  return 0;
+    /// OK. Now all threads have reached the barrier. We now free then to continue execution
+    ATOMIC_AND(&__mtsp_threadWait, 0);
+
+    /// Before we continue we need to make sure that all threads have "seen" the previous
+    /// updated value of threadWait
+    while (__mtsp_threadWaitCounter != 0);
+
+    return 0;
 }
 
 void __kmpc_barrier(ident* loc, kmp_int32 gtid) {
@@ -103,7 +107,7 @@ void __kmpc_barrier(ident* loc, kmp_int32 gtid) {
 }
 
 kmp_int32 __kmpc_cancel_barrier(ident* loc, kmp_int32 gtid) {
-  //printf("__kmpc_cancel_barrier %s:%d\n", __FILE__, __LINE__);
+    //printf("__kmpc_cancel_barrier %s:%d\n", __FILE__, __LINE__);
     return 0;
 }
 
@@ -113,36 +117,41 @@ kmp_int32 __kmpc_single(ident* loc, kmp_int32 gtid) {
 }
 
 void __kmpc_end_single(ident* loc, kmp_int32 gtid) {
-  /// Flush the current state of the submission queues..
-  submissionQueue.fsh();
+    /// Flush the current state of the submission queues..
+    submissionQueue.fsh();
 
-  /// Reset the number of threads that have currently reached the barrier
-  ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
+    dumpTaskGraphToDot();
 
-  /// Tell threads that they should synchronize at a barrier
-  ATOMIC_OR(&__mtsp_threadWait, 1);
+    __mtsp__BlockWorkers = false;
 
-  /// Wait until all threads have reached the barrier
-  while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads);
 
-  /// OK. Now all threads have reached the barrier. We now free then to continue execution
-  ATOMIC_AND(&__mtsp_threadWait, 0);
+    /// Reset the number of threads that have currently reached the barrier
+    ATOMIC_AND(&__mtsp_threadWaitCounter, 0);
 
-  /// Before we continue we need to make sure that all threads have "seen" the previous
-  /// updated value of threadWait
-  while (__mtsp_threadWaitCounter != 0);
+    /// Tell threads that they should synchronize at a barrier
+    ATOMIC_OR(&__mtsp_threadWait, 1);
 
-  RELEASE(&__mtsp_Single);
-  return ;
+    /// Wait until all threads have reached the barrier
+    while (__mtsp_threadWaitCounter != __mtsp_numWorkerThreads);
+
+    /// OK. Now all threads have reached the barrier. We now free then to continue execution
+    ATOMIC_AND(&__mtsp_threadWait, 0);
+
+    /// Before we continue we need to make sure that all threads have "seen" the previous
+    /// updated value of threadWait
+    while (__mtsp_threadWaitCounter != 0);
+
+    RELEASE(&__mtsp_Single);
+    return ;
 }
 
 kmp_int32 __kmpc_master(ident* loc, kmp_int32 gtid) {
-  //printf("__kmpc_master %s:%d\n", __FILE__, __LINE__);
-  return 1;
+    //printf("__kmpc_master %s:%d\n", __FILE__, __LINE__);
+    return 1;
 }
 
 void __kmpc_end_master(ident* loc, kmp_int32 gtid) {
-  //printf("__kmpc_end_master %s:%d\n", __FILE__, __LINE__);
+    //printf("__kmpc_end_master %s:%d\n", __FILE__, __LINE__);
 }
 
 int omp_get_num_threads() {

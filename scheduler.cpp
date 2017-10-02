@@ -17,7 +17,7 @@ SimpleQueue<kmp_task*, RETIREMENT_QUEUE_SIZE> RetirementQueue;
 kmp_uint32		volatile __mtsp_threadWaitCounter	= 0;
 kmp_int32		volatile __mtsp_inFlightTasks		= 0;
 bool			volatile __mtsp_threadWait			= false;
-bool 			volatile __mtsp_activate_workers	= false;
+bool 			volatile __mtsp__BlockWorkers	    = false;
 
 kmp_uint32		volatile __mtsp_numThreads			= 0;
 kmp_uint32		volatile __mtsp_numWorkerThreads	= 0;
@@ -30,6 +30,10 @@ void* workerThreadCode(void* params) {
 	kmp_uint16 myId 		= *tasksIdent;
 
 	while (true) {
+	    /// This is just used in debug mode, for instance, when we want
+	    /// to dump the taskgraph to a DOT file.
+        while (__mtsp__BlockWorkers);
+
 		if (RunQueue.try_deq(&taskToExecute)) {
 			/// Start execution of the task
 			(*(taskToExecute->routine))(0, taskToExecute);

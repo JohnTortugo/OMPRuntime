@@ -89,7 +89,8 @@ void addToTaskGraph(kmp_task* newTask) {
 	kmp_uint16 newTaskId = freeSlots[ freeSlots[0] ];
 	freeSlots[0]--;
 
-	/// depPattern stores a bit pattern representing the dependences of the new task
+    /// Check the dependences of the new task and return the number of unique
+    /// tasks that the new task depends upon
 	kmp_uint64 depCounter = checkAndUpdateDependencies(newTaskId, ndeps, depList);
 
 	/// Store the task_id of this task
@@ -108,3 +109,40 @@ void addToTaskGraph(kmp_task* newTask) {
 	}
 }
 
+void dumpTaskGraphToDot() {
+    static int TaskGraphID = 0;
+    std::stringstream GraphName;
+    GraphName << "TaskGraph_";
+    GraphName << TaskGraphID;
+    GraphName << ".dot";
+
+    FILE* fp = fopen(GraphName.str().c_str(), "w+");
+    TaskGraphID++;
+
+    fprintf(fp, "digraph g {\n");
+
+    for (int i=0; i<MAX_TASKS; i++) {
+        bool found = false;
+
+        for (int j=1; j<=freeSlots[0]; j++) {
+            if (i == freeSlots[j]) {
+                // this task id is free, so there is no task for it
+                found = true;
+                break;
+            }
+        }
+
+        // If the task slot is free dont print the task
+        if (found) continue;
+
+        fprintf(fp, "\tN_%03d;\n", i);
+
+        for (int j=1; j<=dependents[i][0]; j++) {
+            fprintf(fp, "\tN_%03d -> N_%03d ;\n", i, dependents[i][j]);
+        }
+    }
+
+    fprintf(fp, "\n}\n");
+
+    fclose(fp);
+}

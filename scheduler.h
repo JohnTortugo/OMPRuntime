@@ -9,7 +9,7 @@
 	/// The counter is used to count how many threads have already reached to the barrier
 	extern kmp_uint32	volatile	__mtsp_threadWaitCounter;
 	extern bool			volatile	__mtsp_threadWait;
-	extern bool 		volatile 	__mtsp_activate_workers;
+	extern bool 		volatile 	__mtsp__BlockWorkers;
 
 	/// The ***total*** number of tasks anywhere in the system
 	extern kmp_int32	volatile	__mtsp_inFlightTasks;
